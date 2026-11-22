@@ -42,4 +42,4 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GUN_SAYISI: ${{ inputs.gun_sayisi || '5' }}
-        run: python gorev/gemini_arsiv.py
+        run: python -u gorev/gemini_arsiv.py
