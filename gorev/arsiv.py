@@ -31,8 +31,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import yayinla  # noqa: E402  (git yardimcisi ve depo koku)
 
 KOK = yayinla.KOK
-ARALIK_BAS = "20260813"  # 90 gunluk deneme: 13 Agustos - 10 Kasim 2026
-ARALIK_SON = "20261110"  # gunluk ozetler 11 Kasim 2026'da basladi; arsiv bunun oncesidir
+ARALIK_BAS = "20210102"  # 90 gunluk deneme: 13 Agustos - 10 Kasim 2026
+ARALIK_SON = "20220101"  # gunluk ozetler 11 Kasim 2026'da basladi; arsiv bunun oncesidir
 # Kullanim sinirina takilan calisma da deneme sayilir (calisma yarida kesilir, kayit dusemez);
 # 18 Kasim'daki ilk elle calistirma boyle kesildi. Bu yuzden sinir 3 degil 5.
 DENEME_SINIRI = 5
@@ -140,7 +140,7 @@ def mesgul(kayit, simdi):
 
 
 def sonraki():
-    if not ozet_var(bugun()):
+    if False:
         print("GUNLUK_BEKLENIYOR", bugun())
         return
     yayinda, uzak = ana_dal()

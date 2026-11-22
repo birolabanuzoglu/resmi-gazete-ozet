@@ -1,0 +1,274 @@
+import base64
+import os
+import re
+import subprocess
+import sys
+import time
+from pathlib import Path
+import requests
+
+KOK = Path(__file__).resolve().parent.parent
+TALIMAT_YOLU = KOK / "gorev" / "TALIMAT.md"
+OZETLER_DIZINI = KOK / "ozetler"
+API_BASE = "https://generativelanguage.googleapis.com/v1beta"
+TERCIH_MODELLER = [
+    "gemini-4-hydrogen",
+    "gemini-2.5-pro",
+]
+
+
+class KotaDolduHatasi(Exception):
+    pass
+
+
+def calistir(komut: list[str]) -> tuple[int, str]:
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
+    sonuc = subprocess.run(
+        komut,
+        cwd=KOK,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        env=env,
+    )
+    cikti = (sonuc.stdout + "\n" + sonuc.stderr).strip()
+    return sonuc.returncode, cikti
+
+
+def html_temizle(metin: str) -> str:
+    metin = re.sub(r"^```(?:html)?\s*", "", metin.strip(), flags=re.IGNORECASE)
+    metin = re.sub(r"\s*```$", "", metin)
+    return metin.strip() + "\n"
+
+
+def aktif_modelleri_bul(api_key: str) -> list[str]:
+    bulunanlar = list(TERCIH_MODELLER)
+    try:
+        r = requests.get(f"{API_BASE}/models", params={"key": api_key}, timeout=20)
+        if r.ok:
+            for m in r.json().get("models", []):
+                ad = m.get("name", "").replace("models/", "")
+                metotlar = m.get("supportedGenerationMethods", [])
+                if "generateContent" in metotlar and "gemini" in ad and ad not in bulunanlar:
+                    if not any(x in ad for x in ("flash", "lite", "embedding", "imagen", "veo", "tts", "audio")):
+                        bulunanlar.append(ad)
+    except Exception:
+        pass
+    return bulunanlar
+
+
+def icerik_parcalari_hazirla(klasor: Path, tarih: str, talimat: str) -> list[dict]:
+    giris = (
+        f"Aşağıdaki biçim ve üslup talimatlarına eksiksiz uyarak {tarih} tarihli T.C. Resmî Gazete "
+        f"arşiv özetini HTML biçiminde üret.\n\n"
+        f"ÖNEMLİ UYARI: TALIMAT.md içindeki tarih, sayı ve madde örnekleri YALNIZCA HTML yapısını "
+        f"göstermek içindir. O örnek metinleri ASLA kopyalama; içeriği yalnızca aşağıda verilen "
+        f"{tarih} tarihli gerçek Resmî Gazete belgelerinden oluştur.\n\n"
+        f"=== gorev/TALIMAT.md ===\n{talimat}\n=== TALİMAT SONU ===\n\n"
+        f"=== {tarih} TARİHLİ GERÇEK RESMÎ GAZETE DOSYALARI ==="
+    )
+    parcalar: list[dict] = [{"text": giris}]
+
+    dosyalar = sorted(p for p in klasor.rglob("*") if p.is_file())
+    if not dosyalar:
+        raise RuntimeError(f"İndirilen klasör boş: {klasor}")
+
+    toplam_karakter = len(giris)
+    for dosya in dosyalar:
+        goreli = dosya.relative_to(klasor)
+        uzanti = dosya.suffix.lower()
+        if uzanti in {".html", ".htm", ".txt", ".md", ".json", ".xml"}:
+            metin = dosya.read_text(encoding="utf-8", errors="replace")
+            if toplam_karakter + len(metin) > 450000:
+                metin = metin[: max(0, 450000 - toplam_karakter)] + "\n[Metin uzunluk sınırı nedeniyle kısaltıldı]"
+            parcalar.append({"text": f"\n--- DOSYA: {goreli} ---\n{metin}\n"})
+            toplam_karakter += len(metin)
+        elif uzanti == ".pdf":
+            txt_karsiligi = dosya.parent / (dosya.name + ".txt")
+            if txt_karsiligi.exists() and txt_karsiligi.stat().st_size > 200:
+                continue
+            if dosya.stat().st_size <= 8 * 1024 * 1024:
+                veri_b64 = base64.b64encode(dosya.read_bytes()).decode("ascii")
+                parcalar.append({"text": f"\n--- PDF EKİ: {goreli} ---"})
+                parcalar.append({"inlineData": {"mimeType": "application/pdf", "data": veri_b64}})
+
+    return parcalar
+
+
+def gemini_cagir(api_key: str, modeller: list[str], icerikler: list[dict]) -> str:
+    sistem = (
+        "Sen T.C. Resmî Gazete arşiv özetleyicisisin. "
+        "Yalnızca verilen o günün belgelerindeki gerçek maddeleri özetle. "
+        "TALIMAT.md içindeki şablon örneklerini asla kopyalama. "
+        "Sonraki yıllardaki değişiklikleri veya iptalleri hafızandan ekleme. "
+        "Yanıt olarak yalnızca saf HTML döndür; açıklama veya ```html etiketi yazma."
+    )
+
+    son_hata = ""
+    for model in modeller:
+        url = f"{API_BASE}/models/{model}:generateContent"
+        if "2.5" in model:
+            thinking_cfg = {"thinkingBudget": 16384}
+        else:
+            thinking_cfg = {"thinkingLevel": "HIGH"}
+
+        govde = {
+            "systemInstruction": {"parts": [{"text": sistem}]},
+            "contents": icerikler,
+            "generationConfig": {
+                "temperature": 0.15,
+                "maxOutputTokens": 32768,
+                "thinkingConfig": thinking_cfg,
+            },
+        }
+
+        for deneme in range(3):
+            yanit = requests.post(url, params={"key": api_key}, json=govde, timeout=420)
+            if yanit.status_code == 400 and "thinkingConfig" in govde["generationConfig"]:
+                govde["generationConfig"].pop("thinkingConfig", None)
+                continue
+            if yanit.status_code == 404:
+                son_hata = f"{model} bulunamadı (404)"
+                break
+            if yanit.status_code == 429:
+                if deneme < 2:
+                    time.sleep(30)
+                    continue
+                raise KotaDolduHatasi(f"Ücretsiz günlük/dakikalık kota sınırına ulaşıldı ({model}).")
+            if yanit.status_code >= 500:
+                time.sleep(10)
+                continue
+            if not yanit.ok:
+                son_hata = f"{model} HTTP {yanit.status_code}: {yanit.text[:300]}"
+                break
+
+            veri = yanit.json()
+            adaylar = veri.get("candidates", [])
+            if not adaylar:
+                son_hata = f"{model} boş aday döndürdü"
+                break
+            parcalar = adaylar[0].get("content", {}).get("parts", [])
+            metin = "".join(
+                p.get("text", "") for p in parcalar if not p.get("thought")
+            ).strip()
+            if metin:
+                print(f"  -> Kullanılan model: {model} (Düşünme: YÜKSEK)")
+                return html_temizle(metin)
+
+    raise RuntimeError(f"Gemini yanıt üretemedi: {son_hata}")
+
+
+def main() -> int:
+    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if not api_key:
+        print("HATA: GEMINI_API_KEY tanımlı değil.", file=sys.stderr)
+        return 1
+
+    hedef_adet = int(os.environ.get("GUN_SAYISI", "5"))
+    talimat = TALIMAT_YOLU.read_text(encoding="utf-8")
+    OZETLER_DIZINI.mkdir(parents=True, exist_ok=True)
+    modeller = aktif_modelleri_bul(api_key)
+    tamamlanan = 0
+
+    while tamamlanan < hedef_adet:
+        calistir(["git", "pull", "--rebase", "origin", "main"])
+        _, cikti = calistir([sys.executable, "gorev/arsiv.py", "sonraki"])
+        ilk_satir = cikti.splitlines()[0].strip() if cikti else ""
+        print(f"\n[arsiv.py] {ilk_satir}")
+
+        if ilk_satir in {"GUNLUK_BEKLENIYOR", "ARSIV_BITTI"}:
+            print("İşlenecek gün kalmadı.")
+            break
+
+        if not ilk_satir.startswith("ARSIV_TARIHI "):
+            print(f"Beklenmeyen çıktı:\n{cikti}", file=sys.stderr)
+            return 1
+
+        tarih = ilk_satir.split()[1]
+        _, indir_cikti = calistir([sys.executable, "gorev/indir.py", tarih, "--arsiv"])
+        indir_ilk = indir_cikti.splitlines()[0].strip() if indir_cikti else ""
+        print(f"[indir.py {tarih}] {indir_ilk}")
+
+        if indir_ilk == "ZATEN_VAR":
+            continue
+        if indir_ilk == "YAYINLANMADI":
+            calistir([sys.executable, "gorev/arsiv.py", "hata", tarih, "sayı bulunamadı"])
+            continue
+        if indir_ilk.startswith("AG_HATASI") or not indir_ilk.startswith("HAZIR "):
+            print(f"İndirme sorunu:\n{indir_cikti}", file=sys.stderr)
+            return 1
+
+        klasor = Path(indir_ilk.split(" ", 1)[1].strip())
+        if not klasor.is_absolute():
+            klasor = KOK / klasor
+
+        hedef_html = OZETLER_DIZINI / f"{tarih}.html"
+
+        try:
+            ilk_parcalar = icerik_parcalari_hazirla(klasor, tarih, talimat)
+            icerikler = [{"role": "user", "parts": ilk_parcalar}]
+            html_icerik = gemini_cagir(api_key, modeller, icerikler)
+
+            if tarih != "20180715" and "30479 sayılı" in html_icerik:
+                raise RuntimeError("Model şablon örneğini kopyaladı, iptal edildi.")
+
+            hedef_html.write_text(html_icerik, encoding="utf-8")
+            _, denetim = calistir([sys.executable, "gorev/denetle.py", tarih, "--arsiv"])
+            print(f"[denetle.py {tarih}]\n{denetim}")
+
+            if "DENETIM_HATA" in denetim or "UYARI" in denetim:
+                icerikler.append({"role": "model", "parts": [{"text": html_icerik}]})
+                icerikler.append(
+                    {
+                        "role": "user",
+                        "parts": [
+                            {
+                                "text": (
+                                    f"Ürettiğin HTML şu denetim uyarılarını verdi:\n{denetim}\n\n"
+                                    "Yalnızca verilen kaynak belgelere sadık kalarak hataları düzelt "
+                                    "ve tam HTML çıktısını yeniden ver."
+                                )
+                            }
+                        ],
+                    }
+                )
+                html_icerik = gemini_cagir(api_key, modeller, icerikler)
+                hedef_html.write_text(html_icerik, encoding="utf-8")
+                _, denetim = calistir([sys.executable, "gorev/denetle.py", tarih, "--arsiv"])
+                print(f"[denetle.py 2. tur {tarih}]\n{denetim}")
+
+            if "DENETIM_TAMAM" not in denetim:
+                if hedef_html.exists():
+                    hedef_html.unlink()
+                hata_satiri = next((s for s in denetim.splitlines() if "HATA" in s), "denetim hatası")
+                calistir([sys.executable, "gorev/arsiv.py", "hata", tarih, hata_satiri[:120]])
+                continue
+
+            yayin_kod, yayin_cikti = calistir([sys.executable, "gorev/yayinla.py", tarih, "main"])
+            print(f"[yayinla.py {tarih}] kod={yayin_kod}\n{yayin_cikti}")
+            if yayin_kod != 0:
+                return 1
+
+            tamamlanan += 1
+            print(f"Bu turda tamamlanan: {tamamlanan}/{hedef_adet}")
+            if tamamlanan < hedef_adet:
+                time.sleep(35)
+
+        except KotaDolduHatasi as exc:
+            if hedef_html.exists():
+                hedef_html.unlink()
+            print(f"\nBilgi: {exc} Sonraki saatlik turda devam edilecek.")
+            return 0
+        except Exception as exc:
+            if hedef_html.exists():
+                hedef_html.unlink()
+            print(f"[{tarih}] Hata: {exc}", file=sys.stderr)
+            calistir([sys.executable, "gorev/arsiv.py", "hata", tarih, str(exc)[:120]])
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
