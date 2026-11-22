@@ -1,0 +1,54 @@
+name: Arkadastan Arsiv Al ve Yayinla
+
+on:
+  workflow_dispatch:
+    inputs:
+      arkadas_repo:
+        description: "Arkadaşının GitHub adresi veya kullanıcı-adı/resmi-gazete-ozet"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  birlestir:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ana depoyu indir
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Python kur
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Özetleri çek ve uygulamaya hazırla
+        run: |
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          REPO="${{ github.event.inputs.arkadas_repo }}"
+          REPO="${REPO#https://github.com/}"
+          REPO="${REPO%.git}"
+          REPO="${REPO%/}"
+          git remote add arkadas "https://github.com/${REPO}.git"
+          git fetch arkadas main
+          DOSYALAR=$(git ls-tree --name-only arkadas/main ozetler/ | grep -E 'ozetler/(2020[0-9]{4}|20210101)\.html' || true)
+          if [ -z "$DOSYALAR" ]; then
+            echo "Aktarılacak özet dosyası bulunamadı."
+            exit 1
+          fi
+          git checkout arkadas/main -- $DOSYALAR
+          python -c "import sys; sys.path.insert(0,'gorev'); import yayinla; yayinla.index_yaz()"
+
+      - name: Değişiklikleri yayınla
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ozetler arama arama.json index.json
+          if git diff --cached --quiet; then
+            echo "Yeni değişiklik yok."
+            exit 0
+          fi
+          git commit -m "Arsiv: 2020-2021 ozetleri guncellendi"
+          git push origin main
