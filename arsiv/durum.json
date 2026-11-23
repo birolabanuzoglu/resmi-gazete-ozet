@@ -1,8 +1,9 @@
 {
  "gunler": {
   "20211223": {
-   "deneme": 2,
-   "son": "2026-11-23 11:53"
+   "deneme": 5,
+   "hata": "HTTPSConnectionPool(host='generativelanguage.googleapis.com', port=443): Read timed out. (read timeout=420)",
+   "son": "2026-11-23 12:07"
   },
   "20211224": {
    "deneme": 1,
