@@ -11,7 +11,7 @@ KOK = Path(__file__).resolve().parent.parent
 TALIMAT_YOLU = KOK / "gorev" / "TALIMAT.md"
 OZETLER_DIZINI = KOK / "ozetler"
 EVREN_API_BASE = "https://evren-llmapi.ssyz.org.tr/v1"
-EVREN_MODEL = "glm-5.3"
+EVREN_MODELLER = ["glm-5.3", "deepseek-v4.1-flash"]
 SARTLAR_ONAYLANDI = False
 
 
@@ -108,75 +108,85 @@ def evren_cagir(evren_key: str, mesajlar: list[dict]) -> str:
         "X-API-Key": evren_key,
         "Content-Type": "application/json",
     }
-    govde = {
-        "model": EVREN_MODEL,
-        "messages": mesajlar,
-        "temperature": 0.15,
-        "max_tokens": 16384,
-        "reasoning_effort": "high",
-    }
 
     son_hata = ""
-    for deneme in range(5):
-        yanit = requests.post(
-            f"{EVREN_API_BASE}/chat/completions",
-            headers=basliklar,
-            json=govde,
-            timeout=420,
-        )
+    for model in EVREN_MODELLER:
+        govde = {
+            "model": model,
+            "messages": mesajlar,
+            "temperature": 0.15,
+            "max_tokens": 16384,
+            "reasoning_effort": "high",
+        }
 
-        if yanit.status_code == 400 and "reasoning_effort" in govde:
-            govde.pop("reasoning_effort", None)
-            continue
+        for deneme in range(2):
+            try:
+                yanit = requests.post(
+                    f"{EVREN_API_BASE}/chat/completions",
+                    headers=basliklar,
+                    json=govde,
+                    timeout=210,
+                )
+            except requests.exceptions.Timeout:
+                son_hata = f"{model} zaman aşımı (210 sn)"
+                print(f"  -> {model} yanıtı gecikti, diğer modele geçiliyor...")
+                break
 
-        if yanit.status_code == 403 and "terms_not_accepted" in yanit.text:
-            global SARTLAR_ONAYLANDI
-            SARTLAR_ONAYLANDI = False
-            evren_sartlari_onayla(evren_key)
-            continue
+            if yanit.status_code == 400 and "reasoning_effort" in govde:
+                govde.pop("reasoning_effort", None)
+                continue
 
-        if yanit.status_code == 429:
-            hata_metni = yanit.text
-            if "daily_token_limit_exceeded" in hata_metni:
-                raise GunlukKotaDolduHatasi("Evren günlük 15M token kotası doldu.")
-            bekle = int(yanit.headers.get("Retry-After", "60"))
-            bekle = min(max(bekle, 15), 90)
-            print(f"  -> Dakikalık/eşzamanlı sınır (429), {bekle} sn bekleniyor...")
-            time.sleep(bekle)
-            continue
+            if yanit.status_code == 403 and "terms_not_accepted" in yanit.text:
+                global SARTLAR_ONAYLANDI
+                SARTLAR_ONAYLANDI = False
+                evren_sartlari_onayla(evren_key)
+                continue
 
-        if yanit.status_code >= 500:
-            print(f"  -> Sunucu yoğunluğu ({yanit.status_code}), 30 sn bekleniyor...")
-            time.sleep(30)
-            continue
+            if yanit.status_code == 429:
+                hata_metni = yanit.text
+                if "daily_token_limit_exceeded" in hata_metni:
+                    raise GunlukKotaDolduHatasi("Evren günlük 15M token kotası doldu.")
+                bekle = int(yanit.headers.get("Retry-After", "45"))
+                bekle = min(max(bekle, 15), 60)
+                print(f"  -> {model} hız sınırı (429), {bekle} sn bekleniyor...")
+                time.sleep(bekle)
+                continue
 
-        if not yanit.ok:
-            son_hata = f"HTTP {yanit.status_code}: {yanit.text[:300]}"
-            break
+            if yanit.status_code >= 500:
+                son_hata = f"{model} sunucu yoğunluğu ({yanit.status_code})"
+                if deneme == 0:
+                    print(f"  -> {model} yoğun ({yanit.status_code}), 15 sn bekleniyor...")
+                    time.sleep(15)
+                    continue
+                print(f"  -> {model} halen yoğun, yedek modele geçiliyor...")
+                break
 
-        veri = yanit.json()
-        secenekler = veri.get("choices", [])
-        if not secenekler:
-            son_hata = "Evren boş yanıt döndürdü"
-            break
+            if not yanit.ok:
+                son_hata = f"{model} HTTP {yanit.status_code}: {yanit.text[:300]}"
+                break
 
-        secim = secenekler[0]
-        metin = (secim.get("message", {}).get("content") or "").strip()
-        bitis = secim.get("finish_reason", "")
+            veri = yanit.json()
+            secenekler = veri.get("choices", [])
+            if not secenekler:
+                son_hata = f"{model} boş yanıt döndürdü"
+                break
 
-        if not metin and bitis == "length" and "reasoning_effort" in govde:
-            print("  -> Düşünme bütçesi çıktı tavanını doldurdu, düşük düşünme ile tekrar deneniyor...")
-            govde["reasoning_effort"] = "low"
-            continue
+            secim = secenekler[0]
+            metin = (secim.get("message", {}).get("content") or "").strip()
+            bitis = secim.get("finish_reason", "")
 
-        temiz = html_temizle(metin)
-        if temiz.strip():
-            kalan_kota = yanit.headers.get("x-evren-daily-remaining-tokens", "")
-            ek_bilgi = f" | Kalan günlük token: {kalan_kota}" if kalan_kota else ""
-            print(f"  -> Kullanılan model: Evren / {EVREN_MODEL}{ek_bilgi}")
-            return temiz
+            if not metin and bitis == "length" and "reasoning_effort" in govde:
+                govde["reasoning_effort"] = "low"
+                continue
 
-        son_hata = f"Boş içerik (finish_reason={bitis})"
+            temiz = html_temizle(metin)
+            if temiz.strip():
+                kalan_kota = yanit.headers.get("x-evren-daily-remaining-tokens", "")
+                ek_bilgi = f" | Kalan günlük token: {kalan_kota}" if kalan_kota else ""
+                print(f"  -> Kullanılan model: Evren / {model}{ek_bilgi}")
+                return temiz
+
+            son_hata = f"{model} boş içerik (finish_reason={bitis})"
 
     raise RuntimeError(f"Evren yanıt üretemedi: {son_hata}")
 
