@@ -97,6 +97,9 @@ def icerik_parcalari_hazirla(klasor: Path, tarih: str, talimat: str) -> list[dic
     return parcalar
 
 
+KOTA_DOLU_MODELLER: set[str] = set()
+
+
 def gemini_cagir(api_key: str, modeller: list[str], icerikler: list[dict]) -> str:
     sistem = (
         "Sen T.C. Resmî Gazete arşiv özetleyicisisin. "
@@ -107,7 +110,12 @@ def gemini_cagir(api_key: str, modeller: list[str], icerikler: list[dict]) -> st
     )
 
     son_hata = ""
+    kota_hatasi_var = False
     for model in modeller:
+        if model in KOTA_DOLU_MODELLER:
+            kota_hatasi_var = True
+            continue
+
         url = f"{API_BASE}/models/{model}:generateContent"
         if "2.5" in model:
             thinking_cfg = {"thinkingBudget": 16384}
@@ -124,7 +132,7 @@ def gemini_cagir(api_key: str, modeller: list[str], icerikler: list[dict]) -> st
             },
         }
 
-        for deneme in range(3):
+        for deneme in range(2):
             yanit = requests.post(url, params={"key": api_key}, json=govde, timeout=420)
             if yanit.status_code == 400 and "thinkingConfig" in govde["generationConfig"]:
                 govde["generationConfig"].pop("thinkingConfig", None)
@@ -133,10 +141,14 @@ def gemini_cagir(api_key: str, modeller: list[str], icerikler: list[dict]) -> st
                 son_hata = f"{model} bulunamadı (404)"
                 break
             if yanit.status_code == 429:
-                if deneme < 2:
-                    time.sleep(30)
+                if deneme == 0:
+                    time.sleep(20)
                     continue
-                raise KotaDolduHatasi(f"Ücretsiz günlük/dakikalık kota sınırına ulaşıldı ({model}).")
+                print(f"  -> {model} kota sınırına ulaştı, yedek modele geçiliyor...")
+                KOTA_DOLU_MODELLER.add(model)
+                kota_hatasi_var = True
+                son_hata = f"{model} kota sınırı (429)"
+                break
             if yanit.status_code >= 500:
                 time.sleep(10)
                 continue
@@ -157,6 +169,8 @@ def gemini_cagir(api_key: str, modeller: list[str], icerikler: list[dict]) -> st
                 print(f"  -> Kullanılan model: {model} (Düşünme: YÜKSEK)")
                 return html_temizle(metin)
 
+    if kota_hatasi_var:
+        raise KotaDolduHatasi(f"Tüm Pro modellerin kota sınırına ulaşıldı ({son_hata}).")
     raise RuntimeError(f"Gemini yanıt üretemedi: {son_hata}")
 
 
