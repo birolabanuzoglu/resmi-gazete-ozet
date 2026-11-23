@@ -81,8 +81,9 @@
    "son": "2026-11-23 22:20"
   },
   "20260830": {
-   "deneme": 1,
-   "son": "2026-11-23 22:19"
+   "deneme": 5,
+   "hata": "Model şablon örneğini kopyaladı, iptal edildi.",
+   "son": "2026-11-23 22:22"
   },
   "20260831": {
    "deneme": 5,
