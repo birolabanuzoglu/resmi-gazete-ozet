@@ -12,6 +12,7 @@ TALIMAT_YOLU = KOK / "gorev" / "TALIMAT.md"
 OZETLER_DIZINI = KOK / "ozetler"
 EVREN_API_BASE = "https://evren-llmapi.ssyz.org.tr/v1"
 EVREN_MODELLER = ["glm-5.3", "deepseek-v4.1-flash"]
+YOGUN_MODELLER: set[str] = set()
 SARTLAR_ONAYLANDI = False
 
 
@@ -111,6 +112,10 @@ def evren_cagir(evren_key: str, mesajlar: list[dict]) -> str:
 
     son_hata = ""
     for model in EVREN_MODELLER:
+        if model in YOGUN_MODELLER and len(EVREN_MODELLER) > len(YOGUN_MODELLER):
+            continue
+
+        zaman_asimi = 90 if model == "glm-5.3" else 240
         govde = {
             "model": model,
             "messages": mesajlar,
@@ -125,11 +130,12 @@ def evren_cagir(evren_key: str, mesajlar: list[dict]) -> str:
                     f"{EVREN_API_BASE}/chat/completions",
                     headers=basliklar,
                     json=govde,
-                    timeout=210,
+                    timeout=zaman_asimi,
                 )
             except requests.exceptions.Timeout:
-                son_hata = f"{model} zaman aşımı (210 sn)"
-                print(f"  -> {model} yanıtı gecikti, diğer modele geçiliyor...")
+                son_hata = f"{model} zaman aşımı ({zaman_asimi} sn)"
+                print(f"  -> {model} yanıtı gecikti, bu turda hızlı modele sabitleniyor...")
+                YOGUN_MODELLER.add(model)
                 break
 
             if yanit.status_code == 400 and "reasoning_effort" in govde:
@@ -155,10 +161,11 @@ def evren_cagir(evren_key: str, mesajlar: list[dict]) -> str:
             if yanit.status_code >= 500:
                 son_hata = f"{model} sunucu yoğunluğu ({yanit.status_code})"
                 if deneme == 0:
-                    print(f"  -> {model} yoğun ({yanit.status_code}), 15 sn bekleniyor...")
-                    time.sleep(15)
+                    print(f"  -> {model} yoğun ({yanit.status_code}), 10 sn bekleniyor...")
+                    time.sleep(10)
                     continue
-                print(f"  -> {model} halen yoğun, yedek modele geçiliyor...")
+                print(f"  -> {model} yoğun durumda, bu turda yedek modele geçiliyor...")
+                YOGUN_MODELLER.add(model)
                 break
 
             if not yanit.ok:
