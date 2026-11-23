@@ -2,7 +2,7 @@ name: Karinca Claude Arsiv Uret ve Yayinla
 
 on:
   schedule:
-    - cron: '14,44 * * * *'
+    - cron: '5,25,45 * * * *'
   workflow_dispatch:
     inputs:
       gun_sayisi:
@@ -38,7 +38,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Karinca Labs Claude Opus 5.5 ile arsiv uret
+      - name: Karinca Labs Claude ile arsiv uret
         env:
           KARINCA_API_KEY: ${{ secrets.KARINCA_API_KEY }}
           GUN_SAYISI: ${{ inputs.gun_sayisi || '35' }}

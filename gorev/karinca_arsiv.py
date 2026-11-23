@@ -24,6 +24,10 @@ class BakiyeVeyaLisansHatasi(Exception):
     pass
 
 
+class GunlukLimitDolduHatasi(Exception):
+    pass
+
+
 class GeciciApiHatasi(Exception):
     pass
 
@@ -81,7 +85,6 @@ def metin_icerigi_hazirla(klasor: Path, tarih: str, talimat: str, maks_karakter:
         p for p in tum_dosyalar if p.suffix.lower() in {".html", ".htm", ".json", ".xml"}
     ]
 
-    # Önce kanun, kararname, yönetmelik ve atamalar; ihale/yargı ilanları en sona
     secilen_dosyalar.sort(key=lambda p: ("ilan" in p.name.lower(), str(p)))
 
     toplam_karakter = len(bolumler[0])
@@ -163,9 +166,13 @@ def karinca_cagir(karinca_key: str, sistem: str, mesajlar: list[dict]) -> str:
             break
 
         if yanit.status_code == 429:
-            detay = " ".join(yanit.text.split())[:220]
+            detay = " ".join(yanit.text.split())[:260]
             retry_after = yanit.headers.get("Retry-After", "")
             yanit.close()
+            if "Daily message limit" in detay or "midnight" in detay.lower():
+                raise GunlukLimitDolduHatasi(
+                    f"Karınca Labs günlük 1250 mesaj limiti doldu (gece 00:00'da sıfırlanır): {detay}"
+                )
             ek = f" (Retry-After={retry_after})" if retry_after else ""
             raise GeciciApiHatasi(f"{model} hız sınırı (429){ek}: {detay}")
 
@@ -226,7 +233,7 @@ def main() -> int:
         print("HATA: KARINCA_API_KEY tanımlı değil.", file=sys.stderr)
         return 1
 
-    hedef_adet = int(os.environ.get("GUN_SAYISI", "25"))
+    hedef_adet = int(os.environ.get("GUN_SAYISI", "35"))
     talimat = TALIMAT_YOLU.read_text(encoding="utf-8")
     OZETLER_DIZINI.mkdir(parents=True, exist_ok=True)
 
@@ -292,7 +299,7 @@ def main() -> int:
                 print(f"[denetle.py {tarih}]\n{denetim}")
 
                 if "DENETIM_HATA" in denetim or "UYARI" in denetim:
-                    time.sleep(20)
+                    time.sleep(15)
                     mesajlar.append({"role": "assistant", "content": html_icerik})
                     mesajlar.append(
                         {
@@ -329,15 +336,14 @@ def main() -> int:
                 tamamlanan += 1
                 print(f"Bu turda tamamlanan: {tamamlanan}/{hedef_adet}")
                 gun_basarili = True
-                # Dakikalık limite tekrar takılmamak için iki gün arasında kısa nefes payı
                 if tamamlanan < hedef_adet:
-                    time.sleep(25)
+                    time.sleep(15)
                 break
 
-            except BakiyeVeyaLisansHatasi as exc:
+            except (BakiyeVeyaLisansHatasi, GunlukLimitDolduHatasi) as exc:
                 if hedef_html.exists():
                     hedef_html.unlink()
-                print(f"\nBilgi: {exc} Karınca Labs hattı durduruldu.")
+                print(f"\nBilgi: {exc}")
                 return 0
             except GeciciApiHatasi as exc:
                 if hedef_html.exists():
