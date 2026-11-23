@@ -1,0 +1,45 @@
+name: Evren Surekli Arsiv Uret ve Yayinla
+
+on:
+  schedule:
+    - cron: '7,37 * * * *'
+  workflow_dispatch:
+    inputs:
+      gun_sayisi:
+        description: 'Bu turda uretilecek gun sayisi'
+        required: false
+        default: '40'
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: arsiv-yayin
+  cancel-in-progress: false
+
+jobs:
+  evren-arsiv-uret:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Bagimliliklari kur
+        run: pip install requests
+
+      - name: Git kimligi ayarla
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Evren glm-5.3 ile surekli arsiv uret
+        env:
+          EVREN_API_KEY: ${{ secrets.EVREN_API_KEY }}
+          GUN_SAYISI: ${{ inputs.gun_sayisi || '40' }}
+        run: python -u gorev/evren_arsiv.py
