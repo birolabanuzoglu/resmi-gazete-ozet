@@ -12,10 +12,10 @@ TALIMAT_YOLU = KOK / "gorev" / "TALIMAT.md"
 OZETLER_DIZINI = KOK / "ozetler"
 KARINCA_API_BASE = "https://api.karincalabs.com"
 KARINCA_MODELLER = [
-    "claude-opus-5-5",
-    "claude-sonnet-5",
-    "claude-opus-4-7",
     "claude-sonnet-4-6",
+    "claude-sonnet-5",
+    "claude-opus-5-5",
+    "claude-opus-4-7",
 ]
 DEVRE_DISI_MODELLER: set[str] = set()
 
@@ -63,6 +63,8 @@ def metin_icerigi_hazirla(klasor: Path, tarih: str, talimat: str) -> str:
     bolumler = [
         f"Aşağıdaki biçim ve üslup talimatlarına eksiksiz uyarak {tarih} tarihli T.C. Resmî Gazete "
         f"arşiv özetini HTML biçiminde üret.\n\n"
+        f"ZORUNLU BİÇİM KURALI: Ana başlıktan (<h1>) hemen sonra mutlaka "
+        f"'<p><b>Kapsam:</b> Arşiv özeti – ...</p>' satırını ekle (kısa çizgi '–' karakteri birebir kullanılmalıdır).\n"
         f"ÖNEMLİ UYARI: TALIMAT.md içindeki tarih, sayı ve madde örnekleri YALNIZCA HTML yapısını "
         f"göstermek içindir. O örnek metinleri ASLA kopyalama; içeriği yalnızca aşağıda verilen "
         f"{tarih} tarihli gerçek Resmî Gazete belgelerinden oluştur.\n\n"
@@ -80,7 +82,7 @@ def metin_icerigi_hazirla(klasor: Path, tarih: str, talimat: str) -> str:
     ]
 
     toplam_karakter = len(bolumler[0])
-    maks_karakter = 240000
+    maks_karakter = 150000
 
     for dosya in secilen_dosyalar:
         goreli = dosya.relative_to(klasor)
@@ -118,13 +120,12 @@ def karinca_cagir(karinca_key: str, sistem: str, mesajlar: list[dict]) -> str:
             "model": model,
             "system": sistem,
             "messages": mesajlar,
-            "max_tokens": 16384,
+            "max_tokens": 12288,
             "temperature": 0.15,
-            "thinking": {"type": "enabled", "budget_tokens": 6000},
             "stream": True,
         }
 
-        for deneme in range(3):
+        for deneme in range(2):
             try:
                 yanit = requests.post(
                     f"{KARINCA_API_BASE}/v1/messages",
@@ -135,7 +136,7 @@ def karinca_cagir(karinca_key: str, sistem: str, mesajlar: list[dict]) -> str:
                 )
             except requests.exceptions.RequestException as exc:
                 son_hata = f"{model} bağlantı gecikmesi ({exc.__class__.__name__})"
-                time.sleep(10)
+                time.sleep(8)
                 continue
 
             if yanit.status_code == 402:
@@ -147,7 +148,7 @@ def karinca_cagir(karinca_key: str, sistem: str, mesajlar: list[dict]) -> str:
                 yanit.close()
                 if any(k in hata_metni for k in ("LICENSE_", "UNAUTHORIZED")):
                     raise BakiyeVeyaLisansHatasi(f"Karınca Labs lisans/yetki durdu: {hata_metni[:180]}")
-                print(f"  -> {model} bu pakette açık değil, yedek modele geçiliyor...")
+                print(f"  -> {model} bu pakette açık değil, sıradaki modele geçiliyor...")
                 DEVRE_DISI_MODELLER.add(model)
                 son_hata = f"{model} kapalı (403)"
                 break
@@ -155,11 +156,8 @@ def karinca_cagir(karinca_key: str, sistem: str, mesajlar: list[dict]) -> str:
             if yanit.status_code == 400:
                 hata_metni = yanit.text
                 yanit.close()
-                if "thinking" in govde:
-                    govde.pop("thinking", None)
-                    continue
                 if "MODEL_NOT_AVAILABLE" in hata_metni or "model" in hata_metni.lower():
-                    print(f"  -> {model} bulunamadı, yedek modele geçiliyor...")
+                    print(f"  -> {model} bulunamadı, sıradaki modele geçiliyor...")
                     DEVRE_DISI_MODELLER.add(model)
                     son_hata = f"{model} bulunamadı (400)"
                     break
@@ -167,18 +165,16 @@ def karinca_cagir(karinca_key: str, sistem: str, mesajlar: list[dict]) -> str:
                 break
 
             if yanit.status_code == 429:
-                bekle = int(yanit.headers.get("Retry-After", "45"))
-                bekle = min(max(bekle, 15), 75)
                 yanit.close()
-                print(f"  -> {model} dakikalık sınır (429), {bekle} sn bekleniyor...")
-                time.sleep(bekle)
-                continue
+                son_hata = f"{model} dakikalık sınır (429)"
+                print(f"  -> {model} hız sınırı (429), beklemeden sıradaki modele geçiliyor...")
+                break
 
             if yanit.status_code >= 500:
                 kod = yanit.status_code
                 yanit.close()
                 son_hata = f"{model} sunucu yoğunluğu ({kod})"
-                time.sleep(12)
+                time.sleep(8)
                 continue
 
             if not yanit.ok:
@@ -214,7 +210,7 @@ def karinca_cagir(karinca_key: str, sistem: str, mesajlar: list[dict]) -> str:
                                 parcalar.append(parca)
             except requests.exceptions.RequestException as exc:
                 son_hata = f"{model} akış kesintisi ({exc.__class__.__name__})"
-                time.sleep(8)
+                time.sleep(6)
                 continue
             finally:
                 yanit.close()
@@ -226,7 +222,7 @@ def karinca_cagir(karinca_key: str, sistem: str, mesajlar: list[dict]) -> str:
 
             son_hata = f"{model} boş yanıt döndürdü"
 
-    raise GeciciApiHatasi(f"Karınca Labs yanıt üretemedi: {son_hata}")
+    raise GeciciApiHatasi(f"Karınca Labs tüm modellerde geçici sınırda: {son_hata}")
 
 
 def main() -> int:
@@ -235,16 +231,14 @@ def main() -> int:
         print("HATA: KARINCA_API_KEY tanımlı değil.", file=sys.stderr)
         return 1
 
-    # Evren ile aynı anda başlarsa aynı milisaniyede git çakışması olmaması için kısa kaydırma
-    time.sleep(12)
-
-    hedef_adet = int(os.environ.get("GUN_SAYISI", "35"))
+    hedef_adet = int(os.environ.get("GUN_SAYISI", "45"))
     talimat = TALIMAT_YOLU.read_text(encoding="utf-8")
     OZETLER_DIZINI.mkdir(parents=True, exist_ok=True)
 
     sistem = (
         "Sen T.C. Resmî Gazete arşiv özetleyicisisin. "
         "Yalnızca verilen o günün belgelerindeki gerçek maddeleri özetle. "
+        "Ana başlıktan hemen sonra mutlaka '<p><b>Kapsam:</b> Arşiv özeti – ...</p>' satırını yaz. "
         "TALIMAT.md içindeki şablon örneklerini asla kopyalama. "
         "Sonraki yıllardaki değişiklikleri veya iptalleri hafızandan ekleme. "
         "Yanıt olarak yalnızca saf HTML döndür; açıklama veya ```html etiketi yazma."
@@ -336,7 +330,7 @@ def main() -> int:
             tamamlanan += 1
             print(f"Bu turda tamamlanan: {tamamlanan}/{hedef_adet}")
             if tamamlanan < hedef_adet:
-                time.sleep(3)
+                time.sleep(5)
 
         except BakiyeVeyaLisansHatasi as exc:
             if hedef_html.exists():
@@ -346,8 +340,8 @@ def main() -> int:
         except GeciciApiHatasi as exc:
             if hedef_html.exists():
                 hedef_html.unlink()
-            print(f"[{tarih}] Geçici API gecikmesi (sonra tekrar denenecek): {exc}")
-            time.sleep(10)
+            print(f"[{tarih}] Geçici hız sınırı, 35 sn beklenip tekrar denenecek: {exc}")
+            time.sleep(35)
         except Exception as exc:
             if hedef_html.exists():
                 hedef_html.unlink()
