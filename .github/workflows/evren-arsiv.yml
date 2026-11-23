@@ -1,12 +1,14 @@
-name: Evren Arsiv (Devre Disi - Yalnizca Elle)
+name: Evren Hizli Arsiv Uret ve Yayinla
 
 on:
+  schedule:
+    - cron: '12,42 * * * *'
   workflow_dispatch:
     inputs:
       gun_sayisi:
         description: 'Bu turda uretilecek gun sayisi'
         required: false
-        default: '10'
+        default: '25'
         type: string
 
 permissions:
@@ -32,8 +34,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-      - name: Evren ile arsiv uret
+      - name: Evren hizli modeller ile arsiv uret
         env:
           EVREN_API_KEY: ${{ secrets.EVREN_API_KEY }}
-          GUN_SAYISI: ${{ inputs.gun_sayisi || '10' }}
+          GUN_SAYISI: ${{ inputs.gun_sayisi || '25' }}
         run: python -u gorev/evren_arsiv.py

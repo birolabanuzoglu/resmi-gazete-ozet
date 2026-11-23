@@ -12,7 +12,7 @@ KOK = Path(__file__).resolve().parent.parent
 TALIMAT_YOLU = KOK / "gorev" / "TALIMAT.md"
 OZETLER_DIZINI = KOK / "ozetler"
 EVREN_API_BASE = "https://evren-llmapi.ssyz.org.tr/v1"
-EVREN_MODELLER = ["glm-5.3", "deepseek-v4.1-flash", "qwen3.8-flash-next", "gemma-4-31b"]
+EVREN_MODELLER = ["deepseek-v4.1-flash", "qwen3.8-flash-next", "gemma-4-31b"]
 YOGUN_MODELLER: set[str] = set()
 SARTLAR_ONAYLANDI = False
 
@@ -79,10 +79,12 @@ def evren_sartlari_onayla(evren_key: str) -> None:
         print(f"[Evren] Şart kontrol uyarısı: {exc}")
 
 
-def metin_icerigi_hazirla(klasor: Path, tarih: str, talimat: str) -> str:
+def metin_icerigi_hazirla(klasor: Path, tarih: str, talimat: str, maks_karakter: int = 85000) -> str:
     bolumler = [
         f"Aşağıdaki biçim ve üslup talimatlarına eksiksiz uyarak {tarih} tarihli T.C. Resmî Gazete "
         f"arşiv özetini HTML biçiminde üret.\n\n"
+        f"ZORUNLU BİÇİM KURALI: Ana başlıktan (<h1>) hemen sonra mutlaka "
+        f"'<p><b>Kapsam:</b> Arşiv özeti – ...</p>' satırını ekle (kısa çizgi '–' karakteri birebir kullanılmalıdır).\n"
         f"ÖNEMLİ UYARI: TALIMAT.md içindeki tarih, sayı ve madde örnekleri YALNIZCA HTML yapısını "
         f"göstermek içindir. O örnek metinleri ASLA kopyalama; içeriği yalnızca aşağıda verilen "
         f"{tarih} tarihli gerçek Resmî Gazete belgelerinden oluştur.\n\n"
@@ -98,10 +100,9 @@ def metin_icerigi_hazirla(klasor: Path, tarih: str, talimat: str) -> str:
     secilen_dosyalar = duz_metinler if duz_metinler else [
         p for p in tum_dosyalar if p.suffix.lower() in {".html", ".htm", ".json", ".xml"}
     ]
+    secilen_dosyalar.sort(key=lambda p: ("ilan" in p.name.lower(), str(p)))
 
     toplam_karakter = len(bolumler[0])
-    maks_karakter = 220000
-
     for dosya in secilen_dosyalar:
         goreli = dosya.relative_to(klasor)
         metin = dosya.read_text(encoding="utf-8", errors="replace")
@@ -139,7 +140,7 @@ def evren_cagir(evren_key: str, mesajlar: list[dict]) -> str:
             "model": model,
             "messages": mesajlar,
             "temperature": 0.15,
-            "max_tokens": 12288,
+            "max_tokens": 10240,
             "reasoning_effort": "low",
             "stream": True,
         }
@@ -150,12 +151,12 @@ def evren_cagir(evren_key: str, mesajlar: list[dict]) -> str:
                     f"{EVREN_API_BASE}/chat/completions",
                     headers=basliklar,
                     json=govde,
-                    timeout=(30, 120),
+                    timeout=(25, 95),
                     stream=True,
                 )
             except requests.exceptions.RequestException as exc:
-                son_hata = f"{model} bağlantı/zaman aşımı ({exc.__class__.__name__})"
-                print(f"  -> {model} yanıtı gecikti, hızlı modele geçiliyor...")
+                son_hata = f"{model} gecikme ({exc.__class__.__name__})"
+                print(f"  -> {model} yanıtı gecikti, sıradaki hızlı modele geçiliyor...")
                 YOGUN_MODELLER.add(model)
                 break
 
@@ -176,8 +177,8 @@ def evren_cagir(evren_key: str, mesajlar: list[dict]) -> str:
                 yanit.close()
                 if "daily_token_limit_exceeded" in hata_metni:
                     raise GunlukKotaDolduHatasi("Evren günlük 15M token kotası doldu.")
-                bekle = int(yanit.headers.get("Retry-After", "45"))
-                bekle = min(max(bekle, 15), 60)
+                bekle = int(yanit.headers.get("Retry-After", "30"))
+                bekle = min(max(bekle, 15), 45)
                 print(f"  -> {model} hız sınırı (429), {bekle} sn bekleniyor...")
                 time.sleep(bekle)
                 continue
@@ -185,17 +186,13 @@ def evren_cagir(evren_key: str, mesajlar: list[dict]) -> str:
             if yanit.status_code >= 500:
                 kod = yanit.status_code
                 yanit.close()
-                son_hata = f"{model} sunucu yoğunluğu ({kod})"
-                if deneme == 0:
-                    print(f"  -> {model} yoğun ({kod}), 8 sn bekleniyor...")
-                    time.sleep(8)
-                    continue
-                print(f"  -> {model} yoğun, sıradaki modele geçiliyor...")
+                son_hata = f"{model} yoğun ({kod})"
+                print(f"  -> {model} yoğun ({kod}), sıradaki modele geçiliyor...")
                 YOGUN_MODELLER.add(model)
                 break
 
             if not yanit.ok:
-                son_hata = f"{model} HTTP {yanit.status_code}: {yanit.text[:300]}"
+                son_hata = f"{model} HTTP {yanit.status_code}: {yanit.text[:250]}"
                 yanit.close()
                 break
 
@@ -204,9 +201,7 @@ def evren_cagir(evren_key: str, mesajlar: list[dict]) -> str:
             kalan_kota = yanit.headers.get("x-evren-daily-remaining-tokens", "")
             try:
                 for satir in yanit.iter_lines(decode_unicode=True):
-                    if not satir or satir.startswith(":"):
-                        continue
-                    if not satir.startswith("data:"):
+                    if not satir or not satir.startswith("data:"):
                         continue
                     veri_str = satir[5:].strip()
                     if veri_str == "[DONE]":
@@ -227,7 +222,6 @@ def evren_cagir(evren_key: str, mesajlar: list[dict]) -> str:
                         parcalar.append(parca)
             except requests.exceptions.RequestException as exc:
                 son_hata = f"{model} akış kesintisi ({exc.__class__.__name__})"
-                print(f"  -> {model} akışı kesildi, yedek modele geçiliyor...")
                 YOGUN_MODELLER.add(model)
                 break
             finally:
@@ -254,13 +248,14 @@ def main() -> int:
         print("HATA: EVREN_API_KEY tanımlı değil.", file=sys.stderr)
         return 1
 
-    hedef_adet = int(os.environ.get("GUN_SAYISI", "40"))
+    hedef_adet = int(os.environ.get("GUN_SAYISI", "25"))
     talimat = TALIMAT_YOLU.read_text(encoding="utf-8")
     OZETLER_DIZINI.mkdir(parents=True, exist_ok=True)
 
     sistem = (
         "Sen T.C. Resmî Gazete arşiv özetleyicisisin. "
         "Yalnızca verilen o günün belgelerindeki gerçek maddeleri özetle. "
+        "Ana başlıktan hemen sonra mutlaka '<p><b>Kapsam:</b> Arşiv özeti – ...</p>' satırını yaz. "
         "TALIMAT.md içindeki şablon örneklerini asla kopyalama. "
         "Sonraki yıllardaki değişiklikleri veya iptalleri hafızandan ekleme. "
         "Yanıt olarak yalnızca saf HTML döndür; açıklama veya ```html etiketi yazma."
@@ -305,7 +300,7 @@ def main() -> int:
             klasor = KOK / klasor
 
         try:
-            kullanici_metni = metin_icerigi_hazirla(klasor, tarih, talimat)
+            kullanici_metni = metin_icerigi_hazirla(klasor, tarih, talimat, maks_karakter=85000)
             mesajlar = [
                 {"role": "system", "content": sistem},
                 {"role": "user", "content": kullanici_metni},
@@ -345,6 +340,9 @@ def main() -> int:
 
             calistir(["git", "pull", "--rebase", "origin", "main"])
             yayin_kod, yayin_cikti = calistir([sys.executable, "gorev/yayinla.py", tarih, "main"])
+            if yayin_kod != 0:
+                calistir(["git", "pull", "--rebase", "origin", "main"])
+                yayin_kod, yayin_cikti = calistir([sys.executable, "gorev/yayinla.py", tarih, "main"])
             print(f"[yayinla.py {tarih}] kod={yayin_kod}\n{yayin_cikti}")
             if yayin_kod != 0:
                 return 1
@@ -362,9 +360,9 @@ def main() -> int:
         except GeciciApiHatasi as exc:
             if hedef_html.exists():
                 hedef_html.unlink()
-            print(f"[{tarih}] Geçici API gecikmesi (sonra tekrar denenecek): {exc}")
+            print(f"[{tarih}] Geçici yoğunluk, sonra tekrar denenecek: {exc}")
             YOGUN_MODELLER.clear()
-            time.sleep(10)
+            time.sleep(15)
         except Exception as exc:
             if hedef_html.exists():
                 hedef_html.unlink()
