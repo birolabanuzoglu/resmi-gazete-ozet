@@ -1,0 +1,45 @@
+name: Karinca Claude Arsiv Uret ve Yayinla
+
+on:
+  schedule:
+    - cron: '14,44 * * * *'
+  workflow_dispatch:
+    inputs:
+      gun_sayisi:
+        description: 'Bu turda uretilecek gun sayisi'
+        required: false
+        default: '35'
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: karinca-arsiv
+  cancel-in-progress: false
+
+jobs:
+  karinca-arsiv-uret:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Bagimliliklari kur
+        run: pip install requests
+
+      - name: Git kimligi ayarla
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Karinca Labs Claude Opus 5.5 ile arsiv uret
+        env:
+          KARINCA_API_KEY: ${{ secrets.KARINCA_API_KEY }}
+          GUN_SAYISI: ${{ inputs.gun_sayisi || '35' }}
+        run: python -u gorev/karinca_arsiv.py
