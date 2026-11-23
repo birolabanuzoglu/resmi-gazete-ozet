@@ -1,4 +1,5 @@
 from datetime import date
+import json
 import os
 import re
 import subprocess
@@ -11,12 +12,16 @@ KOK = Path(__file__).resolve().parent.parent
 TALIMAT_YOLU = KOK / "gorev" / "TALIMAT.md"
 OZETLER_DIZINI = KOK / "ozetler"
 EVREN_API_BASE = "https://evren-llmapi.ssyz.org.tr/v1"
-EVREN_MODELLER = ["glm-5.3", "deepseek-v4.1-flash"]
+EVREN_MODELLER = ["glm-5.3", "deepseek-v4.1-flash", "qwen3.8-flash-next", "gemma-4-31b"]
 YOGUN_MODELLER: set[str] = set()
 SARTLAR_ONAYLANDI = False
 
 
 class GunlukKotaDolduHatasi(Exception):
+    pass
+
+
+class GeciciApiHatasi(Exception):
     pass
 
 
@@ -41,6 +46,14 @@ def html_temizle(metin: str) -> str:
     metin = re.sub(r"^```(?:html)?\s*", "", metin, flags=re.IGNORECASE)
     metin = re.sub(r"\s*```$", "", metin)
     return metin.strip() + "\n"
+
+
+def ham_html_ayikla(metin: str) -> str:
+    metin = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", metin, flags=re.DOTALL | re.IGNORECASE)
+    metin = re.sub(r"<[^>]+>", " ", metin)
+    metin = re.sub(r"[ \t]+", " ", metin)
+    metin = re.sub(r"\n\s*\n+", "\n", metin)
+    return metin.strip()
 
 
 def evren_sartlari_onayla(evren_key: str) -> None:
@@ -77,26 +90,33 @@ def metin_icerigi_hazirla(klasor: Path, tarih: str, talimat: str) -> str:
         f"=== {tarih} TARİHLİ GERÇEK RESMÎ GAZETE BELGELERİ ==="
     ]
 
-    dosyalar = sorted(p for p in klasor.rglob("*") if p.is_file())
-    if not dosyalar:
+    tum_dosyalar = sorted(p for p in klasor.rglob("*") if p.is_file())
+    if not tum_dosyalar:
         raise RuntimeError(f"İndirilen klasör boş: {klasor}")
 
-    toplam_karakter = len(bolumler[0])
-    maks_karakter = 650000
+    duz_metinler = [p for p in tum_dosyalar if p.suffix.lower() in {".txt", ".md"}]
+    secilen_dosyalar = duz_metinler if duz_metinler else [
+        p for p in tum_dosyalar if p.suffix.lower() in {".html", ".htm", ".json", ".xml"}
+    ]
 
-    for dosya in dosyalar:
-        uzanti = dosya.suffix.lower()
-        if uzanti in {".html", ".htm", ".txt", ".md", ".json", ".xml"}:
-            goreli = dosya.relative_to(klasor)
-            metin = dosya.read_text(encoding="utf-8", errors="replace")
-            if toplam_karakter + len(metin) > maks_karakter:
-                kalan = max(0, maks_karakter - toplam_karakter)
-                if kalan > 500:
-                    metin = metin[:kalan] + "\n[Uzunluk sınırı nedeniyle kısaltıldı]"
-                else:
-                    break
-            bolumler.append(f"\n--- DOSYA: {goreli} ---\n{metin}\n")
-            toplam_karakter += len(metin)
+    toplam_karakter = len(bolumler[0])
+    maks_karakter = 220000
+
+    for dosya in secilen_dosyalar:
+        goreli = dosya.relative_to(klasor)
+        metin = dosya.read_text(encoding="utf-8", errors="replace")
+        if dosya.suffix.lower() in {".html", ".htm"}:
+            metin = ham_html_ayikla(metin)
+        if not metin.strip():
+            continue
+        if toplam_karakter + len(metin) > maks_karakter:
+            kalan = max(0, maks_karakter - toplam_karakter)
+            if kalan > 500:
+                metin = metin[:kalan] + "\n[Uzunluk sınırı nedeniyle kısaltıldı]"
+            else:
+                break
+        bolumler.append(f"\n--- DOSYA: {goreli} ---\n{metin}\n")
+        toplam_karakter += len(metin)
 
     return "\n".join(bolumler)
 
@@ -115,13 +135,13 @@ def evren_cagir(evren_key: str, mesajlar: list[dict]) -> str:
         if model in YOGUN_MODELLER and len(EVREN_MODELLER) > len(YOGUN_MODELLER):
             continue
 
-        zaman_asimi = 90 if model == "glm-5.3" else 240
         govde = {
             "model": model,
             "messages": mesajlar,
             "temperature": 0.15,
-            "max_tokens": 16384,
-            "reasoning_effort": "high",
+            "max_tokens": 12288,
+            "reasoning_effort": "low",
+            "stream": True,
         }
 
         for deneme in range(2):
@@ -130,19 +150,22 @@ def evren_cagir(evren_key: str, mesajlar: list[dict]) -> str:
                     f"{EVREN_API_BASE}/chat/completions",
                     headers=basliklar,
                     json=govde,
-                    timeout=zaman_asimi,
+                    timeout=(30, 120),
+                    stream=True,
                 )
-            except requests.exceptions.Timeout:
-                son_hata = f"{model} zaman aşımı ({zaman_asimi} sn)"
-                print(f"  -> {model} yanıtı gecikti, bu turda hızlı modele sabitleniyor...")
+            except requests.exceptions.RequestException as exc:
+                son_hata = f"{model} bağlantı/zaman aşımı ({exc.__class__.__name__})"
+                print(f"  -> {model} yanıtı gecikti, hızlı modele geçiliyor...")
                 YOGUN_MODELLER.add(model)
                 break
 
             if yanit.status_code == 400 and "reasoning_effort" in govde:
+                yanit.close()
                 govde.pop("reasoning_effort", None)
                 continue
 
             if yanit.status_code == 403 and "terms_not_accepted" in yanit.text:
+                yanit.close()
                 global SARTLAR_ONAYLANDI
                 SARTLAR_ONAYLANDI = False
                 evren_sartlari_onayla(evren_key)
@@ -150,6 +173,7 @@ def evren_cagir(evren_key: str, mesajlar: list[dict]) -> str:
 
             if yanit.status_code == 429:
                 hata_metni = yanit.text
+                yanit.close()
                 if "daily_token_limit_exceeded" in hata_metni:
                     raise GunlukKotaDolduHatasi("Evren günlük 15M token kotası doldu.")
                 bekle = int(yanit.headers.get("Retry-After", "45"))
@@ -159,43 +183,65 @@ def evren_cagir(evren_key: str, mesajlar: list[dict]) -> str:
                 continue
 
             if yanit.status_code >= 500:
-                son_hata = f"{model} sunucu yoğunluğu ({yanit.status_code})"
+                kod = yanit.status_code
+                yanit.close()
+                son_hata = f"{model} sunucu yoğunluğu ({kod})"
                 if deneme == 0:
-                    print(f"  -> {model} yoğun ({yanit.status_code}), 10 sn bekleniyor...")
-                    time.sleep(10)
+                    print(f"  -> {model} yoğun ({kod}), 8 sn bekleniyor...")
+                    time.sleep(8)
                     continue
-                print(f"  -> {model} yoğun durumda, bu turda yedek modele geçiliyor...")
+                print(f"  -> {model} yoğun, sıradaki modele geçiliyor...")
                 YOGUN_MODELLER.add(model)
                 break
 
             if not yanit.ok:
                 son_hata = f"{model} HTTP {yanit.status_code}: {yanit.text[:300]}"
+                yanit.close()
                 break
 
-            veri = yanit.json()
-            secenekler = veri.get("choices", [])
-            if not secenekler:
-                son_hata = f"{model} boş yanıt döndürdü"
+            parcalar: list[str] = []
+            bitis = ""
+            kalan_kota = yanit.headers.get("x-evren-daily-remaining-tokens", "")
+            try:
+                for satir in yanit.iter_lines(decode_unicode=True):
+                    if not satir or satir.startswith(":"):
+                        continue
+                    if not satir.startswith("data:"):
+                        continue
+                    veri_str = satir[5:].strip()
+                    if veri_str == "[DONE]":
+                        break
+                    try:
+                        olay = json.loads(veri_str)
+                    except json.JSONDecodeError:
+                        continue
+                    secenekler = olay.get("choices", [])
+                    if not secenekler:
+                        continue
+                    secim = secenekler[0]
+                    if secim.get("finish_reason"):
+                        bitis = secim["finish_reason"]
+                    delta = secim.get("delta") or {}
+                    parca = delta.get("content")
+                    if parca:
+                        parcalar.append(parca)
+            except requests.exceptions.RequestException as exc:
+                son_hata = f"{model} akış kesintisi ({exc.__class__.__name__})"
+                print(f"  -> {model} akışı kesildi, yedek modele geçiliyor...")
+                YOGUN_MODELLER.add(model)
                 break
+            finally:
+                yanit.close()
 
-            secim = secenekler[0]
-            metin = (secim.get("message", {}).get("content") or "").strip()
-            bitis = secim.get("finish_reason", "")
-
-            if not metin and bitis == "length" and "reasoning_effort" in govde:
-                govde["reasoning_effort"] = "low"
-                continue
-
-            temiz = html_temizle(metin)
+            temiz = html_temizle("".join(parcalar))
             if temiz.strip():
-                kalan_kota = yanit.headers.get("x-evren-daily-remaining-tokens", "")
                 ek_bilgi = f" | Kalan günlük token: {kalan_kota}" if kalan_kota else ""
                 print(f"  -> Kullanılan model: Evren / {model}{ek_bilgi}")
                 return temiz
 
-            son_hata = f"{model} boş içerik (finish_reason={bitis})"
+            son_hata = f"{model} boş akış (finish_reason={bitis})"
 
-    raise RuntimeError(f"Evren yanıt üretemedi: {son_hata}")
+    raise GeciciApiHatasi(f"Evren yanıt üretemedi: {son_hata}")
 
 
 def main() -> int:
@@ -313,6 +359,12 @@ def main() -> int:
                 hedef_html.unlink()
             print(f"\nBilgi: {exc} Yarın kota yenilendiğinde devam edilecek.")
             return 0
+        except GeciciApiHatasi as exc:
+            if hedef_html.exists():
+                hedef_html.unlink()
+            print(f"[{tarih}] Geçici API gecikmesi (sonra tekrar denenecek): {exc}")
+            YOGUN_MODELLER.clear()
+            time.sleep(10)
         except Exception as exc:
             if hedef_html.exists():
                 hedef_html.unlink()
