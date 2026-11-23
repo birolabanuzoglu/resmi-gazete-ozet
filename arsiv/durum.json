@@ -6,7 +6,8 @@
   },
   "20211231": {
    "deneme": 5,
-   "son": "2026-11-23 02:56"
+   "hata": "HTTPSConnectionPool(host='generativelanguage.googleapis.com', port=443): Read timed out. (read timeout=420)",
+   "son": "2026-11-23 03:41"
   },
   "20220101": {
    "deneme": 1,
