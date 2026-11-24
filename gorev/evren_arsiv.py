@@ -262,7 +262,11 @@ def main() -> int:
     )
 
     tamamlanan = 0
+    baslangic = time.monotonic()
     while tamamlanan < hedef_adet:
+        if time.monotonic() - baslangic > 38 * 60:
+            print("Tur zaman butcesi (38 dk) doldu; sonraki saatlik tur devam edecek.")
+            break
         calistir(["git", "pull", "--rebase", "origin", "main"])
         _, cikti = calistir([sys.executable, "gorev/arsiv.py", "sonraki"])
         ilk_satir = cikti.splitlines()[0].strip() if cikti else ""

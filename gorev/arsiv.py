@@ -96,7 +96,7 @@ def gonder(mesaj):
         return
     dal = yayinla.git("rev-parse", "--abbrev-ref", "HEAD", capture=True).stdout.strip()
     hedef = dal if dal.startswith("claude/") else "main"
-    if yayinla.git("push", "-q", "origin", "HEAD:refs/heads/" + hedef, check=False).returncode != 0:
+    if not yayinla.gonder_dene(hedef, deneme=3):
         print("UYARI deneme kaydi gonderilemedi (" + hedef + "); yayinla.py ile birlikte gidecek")
 
 

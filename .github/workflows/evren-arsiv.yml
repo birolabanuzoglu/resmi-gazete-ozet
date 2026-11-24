@@ -21,6 +21,7 @@ concurrency:
 jobs:
   evren-arsiv-uret:
     runs-on: ubuntu-latest
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
         with:

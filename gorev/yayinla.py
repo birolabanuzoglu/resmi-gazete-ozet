@@ -25,6 +25,33 @@ def git(*args, check=True, capture=False):
     return subprocess.run(["git", "-C", KOK] + list(args), check=check, capture_output=capture, text=True)
 
 
+def gonder_dene(hedef, deneme=6):
+    """HEAD'i hedef dala gonderir; baska bir is ayni anda gonderdiyse (reddedildi) rebase edip yeniden dener.
+
+    Uretilen dizin dosyalari (index.json, arama*) ve durum.json cakisirsa uzaktaki surum alinir, dizin
+    yeniden yazilip ayni commit'e eklenir; ozet dosyasi (yeni dosya) cakismaz. Basari: True.
+    """
+    import random
+    import time
+    for sira in range(1, deneme + 1):
+        if git("push", "-q", "origin", "HEAD:refs/heads/" + hedef, check=False).returncode == 0:
+            return True
+        if sira == deneme:
+            break
+        time.sleep(random.uniform(2, 9))
+        if git("fetch", "-q", "origin", hedef, check=False).returncode != 0:
+            continue
+        if git("rebase", "--autostash", "-X", "ours", "FETCH_HEAD", check=False).returncode != 0:
+            git("rebase", "--abort", check=False)
+            continue
+        index_yaz()
+        git("add", "index.json", "arama.json", "arama", check=False)
+        if git("diff", "--cached", "--quiet", check=False).returncode != 0:
+            git("-c", "user.name=Resmi Gazete Ozet", "-c", "user.email=resmi-gazete-ozet@users.noreply.github.com",
+                "commit", "-q", "-m", "Dizin yenilendi", check=False)
+    return False
+
+
 def boyut(yol):
     """Dosyanin depodaki (satir sonlari LF olan) halinin bayt sayisi."""
     with open(yol, "rb") as f:
@@ -195,7 +222,7 @@ def main():
     if not re.fullmatch(r"[A-Za-z0-9._/-]+", hedef) or hedef.startswith("-"):
         sys.exit("Gecersiz dal adi: " + hedef)
 
-    if git("push", "origin", "HEAD:refs/heads/" + hedef, check=False).returncode != 0:
+    if not gonder_dene(hedef):
         print("GONDERILEMEDI", hedef)
         sys.exit(1)
     print("YAYINLANDI", tarih, hedef)
