@@ -15,6 +15,23 @@ TERCIH_MODELLER = [
     "gemini-4-hydrogen",
     "gemini-2.5-pro",
 ]
+# Pro modellerin ucretsiz kotasi turda birkac gunde doluyor (429). Flash modeller, ucretsiz
+# katmanda cok daha genis gunluk kotayla, Pro'lardan SONRA yedek olarak denenir.
+YEDEK_FLASH_MODELLER = [
+    "gemini-flash-latest",
+    "gemini-2.5-flash",
+]
+OZEL_MODEL_YASAK = ("lite", "embedding", "imagen", "veo", "tts", "audio", "image",
+                    "banana", "transcribe", "robotics", "computer", "customtools", "live",
+                    "native", "vision", "nano", "gemma", "learnlm", "exp", "preview-tts")
+
+
+def surum_anahtari(ad: str) -> tuple:
+    """gemini-3.1-flash -> (3, 1): yeni surum once denensin."""
+    m = re.search(r"gemini-(\d+)(?:\.(\d+))?", ad)
+    if not m:
+        return (0, 0)
+    return (int(m.group(1)), int(m.group(2) or 0))
 
 
 class KotaDolduHatasi(Exception):
@@ -45,23 +62,44 @@ def html_temizle(metin: str) -> str:
 
 def aktif_modelleri_bul(api_key: str) -> list[str]:
     bulunanlar = list(TERCIH_MODELLER)
+    flashlar: list[str] = []
     try:
         r = requests.get(f"{API_BASE}/models", headers={"x-goog-api-key": api_key}, timeout=20)
         if r.ok:
             for m in r.json().get("models", []):
                 ad = m.get("name", "").replace("models/", "")
                 metotlar = m.get("supportedGenerationMethods", [])
-                if "generateContent" in metotlar and "gemini" in ad and ad not in bulunanlar:
-                    # Yalnizca metin ozetleyebilen "pro" modeller: gorsel, ses, robotik, bilgisayar
-                    # kullanimi ve benzeri ozel modeller ozet icin uygun degil (kalitesiz cikti verir)
-                    yasak = ("flash", "lite", "embedding", "imagen", "veo", "tts", "audio", "image",
-                             "banana", "transcribe", "robotics", "computer", "customtools", "live",
-                             "native", "vision", "nano", "gemma", "learnlm")
-                    if "pro" in ad and not any(x in ad for x in yasak):
-                        bulunanlar.append(ad)
+                if "generateContent" not in metotlar or "gemini" not in ad:
+                    continue
+                # Yalnizca metin ozetleyebilen modeller: gorsel, ses, robotik, bilgisayar
+                # kullanimi ve benzeri ozel modeller ozet icin uygun degil (kalitesiz cikti verir)
+                if any(x in ad for x in OZEL_MODEL_YASAK):
+                    continue
+                if "flash" in ad:
+                    if ad not in flashlar:
+                        flashlar.append(ad)
+                elif "pro" in ad and ad not in bulunanlar:
+                    bulunanlar.append(ad)
     except Exception:
         pass
+    flashlar.sort(key=surum_anahtari, reverse=True)
+    for ad in flashlar + YEDEK_FLASH_MODELLER:
+        if ad not in bulunanlar:
+            bulunanlar.append(ad)
     return bulunanlar
+
+
+def gunluk_kota_mi(yanit: requests.Response) -> bool:
+    """429 gunluk kotadan mi (gun boyu dolu) yoksa dakikalik sinirdan mi (bekleyince gecer)?"""
+    try:
+        metin = yanit.text
+    except Exception:
+        return True
+    if "PerDay" in metin or "per day" in metin.lower():
+        return True
+    if "PerMinute" in metin or "per minute" in metin.lower():
+        return False
+    return True
 
 
 def icerik_parcalari_hazirla(klasor: Path, tarih: str, talimat: str) -> list[dict]:
@@ -137,7 +175,8 @@ def gemini_cagir(api_key: str, modeller: list[str], icerikler: list[dict]) -> st
             },
         }
 
-        for deneme in range(2):
+        dakika_beklemesi = 0
+        for deneme in range(4):
             yanit = requests.post(url, headers={"x-goog-api-key": api_key}, json=govde, timeout=420)
             if yanit.status_code == 400 and "thinkingConfig" in govde["generationConfig"]:
                 govde["generationConfig"].pop("thinkingConfig", None)
@@ -146,8 +185,11 @@ def gemini_cagir(api_key: str, modeller: list[str], icerikler: list[dict]) -> st
                 son_hata = f"{model} bulunamadı (404)"
                 break
             if yanit.status_code == 429:
-                if deneme == 0:
-                    time.sleep(20)
+                # Dakikalik sinir (Flash'ta buyuk girdiyle sik olur): bekleyip ayni modelle dene.
+                if not gunluk_kota_mi(yanit) and dakika_beklemesi < 2:
+                    dakika_beklemesi += 1
+                    print(f"  -> {model} dakikalık sınır, 65 sn bekleniyor...")
+                    time.sleep(65)
                     continue
                 print(f"  -> {model} kota sınırına ulaştı, yedek modele geçiliyor...")
                 KOTA_DOLU_MODELLER.add(model)
@@ -171,11 +213,12 @@ def gemini_cagir(api_key: str, modeller: list[str], icerikler: list[dict]) -> st
                 p.get("text", "") for p in parcalar if not p.get("thought")
             ).strip()
             if metin:
-                print(f"  -> Kullanılan model: {model} (Düşünme: YÜKSEK)")
+                dusunme = "YÜKSEK" if "thinkingConfig" in govde["generationConfig"] else "varsayılan"
+                print(f"  -> Kullanılan model: {model} (Düşünme: {dusunme})")
                 return html_temizle(metin)
 
     if kota_hatasi_var:
-        raise KotaDolduHatasi(f"Tüm Pro modellerin kota sınırına ulaşıldı ({son_hata}).")
+        raise KotaDolduHatasi(f"Tüm modellerin (Pro ve Flash) kota sınırına ulaşıldı ({son_hata}).")
     raise RuntimeError(f"Gemini yanıt üretemedi: {son_hata}")
 
 
