@@ -15,7 +15,9 @@ permissions:
   contents: write
 
 concurrency:
-  group: karinca-arsiv
+  # Zamanlanmis turlar tek grupta sirayla calisir; elle baslatilan her tur kendi grubunda, yani
+  # birbirini ve zamanlanmis turu beklemeden paralel calisir (gunleri arsiv.py ayirir).
+  group: ${{ github.event_name == 'workflow_dispatch' && format('karinca-arsiv-elle-{0}', github.run_id) || 'karinca-arsiv' }}
   cancel-in-progress: false
 
 jobs:
