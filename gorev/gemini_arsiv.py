@@ -222,6 +222,20 @@ def gemini_cagir(api_key: str, modeller: list[str], icerikler: list[dict]) -> st
     raise RuntimeError(f"Gemini yanıt üretemedi: {son_hata}")
 
 
+def isaret_satiri(cikti: str) -> str:
+    """arsiv.py sonraki ciktisinda ARSIV_TARIHI / ARSIV_BITTI satirini bulur.
+
+    Paralel turlarda deneme kaydinin gonderimi yeniden denenince git'in mesajlari ("Current branch main
+    is up to date." gibi) bu satirin onune karisabilir; yalnizca ilk satira bakmak turu oldururdu.
+    """
+    satirlar = (cikti or "").splitlines()
+    for s in satirlar:
+        s = s.strip()
+        if s.startswith("ARSIV_TARIHI ") or s.startswith("GUNLUK_BEKLENIYOR") or s == "ARSIV_BITTI":
+            return s
+    return satirlar[0].strip() if satirlar else ""
+
+
 def main() -> int:
     api_key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not api_key:
@@ -233,6 +247,7 @@ def main() -> int:
     OZETLER_DIZINI.mkdir(parents=True, exist_ok=True)
     modeller = aktif_modelleri_bul(api_key)
     tamamlanan = 0
+    beklenmeyen = 0
 
     baslangic = time.monotonic()
     while tamamlanan < hedef_adet:
@@ -241,7 +256,7 @@ def main() -> int:
             break
         calistir(["git", "pull", "--rebase", "origin", "main"])
         _, cikti = calistir([sys.executable, "gorev/arsiv.py", "sonraki"])
-        ilk_satir = cikti.splitlines()[0].strip() if cikti else ""
+        ilk_satir = isaret_satiri(cikti)
         print(f"\n[arsiv.py] {ilk_satir}")
 
         if ilk_satir in {"GUNLUK_BEKLENIYOR", "ARSIV_BITTI"}:
@@ -250,7 +265,12 @@ def main() -> int:
 
         if not ilk_satir.startswith("ARSIV_TARIHI "):
             print(f"Beklenmeyen çıktı:\n{cikti}", file=sys.stderr)
-            return 1
+            beklenmeyen += 1
+            if beklenmeyen >= 5:
+                return 1
+            time.sleep(10)
+            continue
+        beklenmeyen = 0
 
         tarih = ilk_satir.split()[1]
         _, indir_cikti = calistir([sys.executable, "gorev/indir.py", tarih, "--arsiv"])
