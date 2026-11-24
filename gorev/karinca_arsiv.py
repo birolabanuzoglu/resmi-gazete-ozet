@@ -32,6 +32,10 @@ class GeciciApiHatasi(Exception):
     pass
 
 
+class AnahtarGecersizHatasi(Exception):
+    pass
+
+
 def calistir(komut: list[str]) -> tuple[int, str]:
     env = os.environ.copy()
     env["PYTHONIOENCODING"] = "utf-8"
@@ -140,6 +144,11 @@ def karinca_cagir(karinca_key: str, sistem: str, mesajlar: list[dict]) -> str:
         except requests.exceptions.RequestException as exc:
             raise GeciciApiHatasi(f"{model} bağlantı gecikmesi ({exc.__class__.__name__})")
 
+        if yanit.status_code == 401:
+            govde_401 = " ".join(yanit.text.split())[:200]
+            yanit.close()
+            raise AnahtarGecersizHatasi(f"Karınca Labs API anahtarı geçersiz ya da eksik (401): {govde_401}")
+
         if yanit.status_code == 402:
             yanit.close()
             raise BakiyeVeyaLisansHatasi("Karınca Labs paket bakiyesi tükendi (402).")
@@ -230,6 +239,32 @@ def karinca_cagir(karinca_key: str, sistem: str, mesajlar: list[dict]) -> str:
     raise RuntimeError(f"Karınca Labs yanıt üretemedi: {son_hata}")
 
 
+def anahtar_dene(karinca_key: str) -> None:
+    """Bir tokenlik istekle anahtarin gecerli oldugunu dogrular; gecersizse tur hic gun secmeden biter.
+
+    24 Kasim gecesi gecersiz bir anahtarla baslayan 5 paralel tur, her gunu (indirmeden sonra HTTP 401 alip)
+    sonraki gune gecerek 34 gunun deneme hakkini yakmisti.
+    """
+    basliklar = {
+        "x-api-key": karinca_key,
+        "Authorization": f"Bearer {karinca_key}",
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+    }
+    govde = {"model": KARINCA_MODELLER[0], "max_tokens": 1, "messages": [{"role": "user", "content": "ok"}]}
+    try:
+        r = requests.post(f"{KARINCA_API_BASE}/v1/messages", headers=basliklar, json=govde, timeout=(20, 45))
+    except requests.exceptions.RequestException:
+        return  # ag sorunu: dogrulanamadi, tur normal akisla devam eder
+    metin = " ".join(r.text.split())[:200]
+    if r.status_code == 401 or (r.status_code == 403 and "UNAUTHORIZED" in r.text):
+        raise AnahtarGecersizHatasi(f"Karınca Labs API anahtarı geçersiz ya da eksik ({r.status_code}): {metin}")
+    if r.status_code == 402:
+        raise BakiyeVeyaLisansHatasi("Karınca Labs paket bakiyesi tükendi (402).")
+    if r.status_code == 429 and ("Daily message limit" in r.text or "midnight" in r.text.lower()):
+        raise GunlukLimitDolduHatasi(f"Karınca Labs günlük mesaj limiti doldu: {metin}")
+
+
 def isaret_satiri(cikti: str) -> str:
     """arsiv.py sonraki ciktisinda ARSIV_TARIHI / ARSIV_BITTI satirini bulur.
 
@@ -254,6 +289,16 @@ def main() -> int:
     talimat = TALIMAT_YOLU.read_text(encoding="utf-8")
     OZETLER_DIZINI.mkdir(parents=True, exist_ok=True)
 
+    try:
+        anahtar_dene(karinca_key)
+    except AnahtarGecersizHatasi as exc:
+        print(f"HATA: {exc}\nGitHub > Settings > Secrets and variables > Actions > KARINCA_API_KEY değerini kontrol edin.",
+              file=sys.stderr)
+        return 1
+    except (BakiyeVeyaLisansHatasi, GunlukLimitDolduHatasi) as exc:
+        print(f"\nBilgi: {exc}")
+        return 0
+
     sistem = (
         "Sen T.C. Resmî Gazete arşiv özetleyicisisin. "
         "Yalnızca verilen o günün belgelerindeki gerçek maddeleri özetle. "
@@ -265,8 +310,12 @@ def main() -> int:
 
     tamamlanan = 0
     beklenmeyen = 0
+    ust_uste_hata = 0
     baslangic = time.monotonic()
     while tamamlanan < hedef_adet:
+        if ust_uste_hata >= 4:
+            print("Art arda 4 başarısız deneme: tur durduruluyor (nedeni yukarıda); sonraki tur yeniden dener.", file=sys.stderr)
+            return 1
         if time.monotonic() - baslangic > 38 * 60:
             print("Tur zaman butcesi (38 dk) doldu; sonraki saatlik tur devam edecek.")
             break
@@ -348,6 +397,7 @@ def main() -> int:
                         hedef_html.unlink()
                     hata_satiri = next((s for s in denetim.splitlines() if "HATA" in s), "denetim hatası")
                     print(f"[{tarih}] denetim gecmedi ({hata_satiri[:80]}): gun isaretlenmedi, sonraki turda yeniden denenecek")
+                    ust_uste_hata += 1
                     gun_basarili = True
                     break
 
@@ -361,12 +411,18 @@ def main() -> int:
                     return 1
 
                 tamamlanan += 1
+                ust_uste_hata = 0
                 print(f"Bu turda tamamlanan: {tamamlanan}/{hedef_adet}")
                 gun_basarili = True
                 if tamamlanan < hedef_adet:
                     time.sleep(15)
                 break
 
+            except AnahtarGecersizHatasi as exc:
+                if hedef_html.exists():
+                    hedef_html.unlink()
+                print(f"[{tarih}] HATA: {exc}", file=sys.stderr)
+                return 1
             except (BakiyeVeyaLisansHatasi, GunlukLimitDolduHatasi) as exc:
                 if hedef_html.exists():
                     hedef_html.unlink()
@@ -382,6 +438,7 @@ def main() -> int:
                     hedef_html.unlink()
                 print(f"[{tarih}] Hata: {exc}", file=sys.stderr)
                 print(f"[{tarih}] gecici hata: gun isaretlenmedi, sonraki turda yeniden denenecek (en cok 5 deneme)")
+                ust_uste_hata += 1
                 gun_basarili = True
                 break
 
