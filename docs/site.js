@@ -725,7 +725,10 @@ async function showDay(k, q, madde) {
 
   const lead = ozet ? ozet.nodes.map(el => el.textContent.trim()).join(" ") : "";
   setMeta(`${longOf(k)} Resmî Gazete özeti${d.issue ? ` · Sayı ${d.issue}` : ""} | Resmî Gazete Özeti`,
-    lead ? lead.slice(0, 158) + (lead.length > 158 ? "…" : "") : `${longOf(k)} tarihli Resmî Gazete'nin özeti.`, dayUrl(k));
+    lead ? lead.slice(0, 158) + (lead.length > 158 ? "…" : "") : `${longOf(k)} tarihli Resmî Gazete'nin özeti.`,
+    // Arama motorları için kanonik adres günün düz sayfasıdır (docs/gun/, gorev/site_sayfalari.py);
+    // ana sayfada en yeni gün gösterilse de kanonik ana sayfa kalır
+    /[?&]gun=/.test(location.search) ? `gun/${k.slice(0, 4)}-${k.slice(4, 6)}-${k.slice(6)}.html` : "./");
 
   wireDay(k, d, ozet);
   setupFilters();

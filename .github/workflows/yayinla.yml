@@ -124,7 +124,7 @@ jobs:
                 fi
                 # Liste ve arama dizini main'deki betikle yeniden uretilir
                 python3 -c 'import sys; sys.path.insert(0, "gorev"); import yayinla; yayinla.index_yaz()'
-                yollar="ozetler index.json arama.json arama mevzuat"
+                yollar="ozetler index.json arama.json arama mevzuat docs/gun docs/sitemap.xml"
                 if [ -d arsiv ]; then yollar="${yollar} arsiv"; fi
                 git add -A -- ${yollar}
                 if git diff --cached --quiet; then

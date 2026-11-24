@@ -46,6 +46,8 @@ def gonder_dene(hedef, deneme=6):
             continue
         index_yaz()
         git("add", "index.json", "arama.json", "arama", "mevzuat", check=False)
+        if hedef == "main":
+            git("add", "-A", "--", *SITE_YOLLARI, check=False)
         if git("diff", "--cached", "--quiet", check=False).returncode != 0:
             git("-c", "user.name=Resmi Gazete Ozet", "-c", "user.email=resmi-gazete-ozet@users.noreply.github.com",
                 "commit", "-q", "-m", "Dizin yenilendi", check=False)
@@ -191,6 +193,7 @@ def index_yaz():
             f, separators=(",", ":"),
         )
     mevzuat_yaz()
+    sayfalar_yaz(gunler)
 
 
 def mevzuat_yaz():
@@ -201,6 +204,22 @@ def mevzuat_yaz():
         mevzuat_dizin.yaz(KOK)
     except Exception as hata:  # raflar ozetten turetilir; bir sonraki yayinda yeniden yazilir
         print("UYARI mevzuat raflari yazilamadi:", hata)
+
+
+def sayfalar_yaz(gunler=None):
+    """Web sitesinin arama motorlari icin duz gun sayfalari (docs/gun/) ve site haritasi (docs/sitemap.xml).
+    Yazilamazsa ozetin yayini engellenmez."""
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import site_sayfalari
+        site_sayfalari.yaz(KOK, gunler)
+    except Exception as hata:  # sayfalar ozetten turetilir; bir sonraki yayinda yeniden yazilir
+        print("UYARI site sayfalari yazilamadi:", hata)
+
+
+# Site sayfalari yalnizca main'e dogrudan gonderilirken commit'lenir; "claude/" dallarinda is akisi
+# (yayinla.yml) izin listesi disindaki docs/ degisikligini reddederdi, orada main'de yeniden uretilir.
+SITE_YOLLARI = ("docs/gun", "docs/sitemap.xml")
 
 
 def main():
@@ -214,17 +233,6 @@ def main():
     if os.path.getsize(ozet) < 200:
         sys.exit("Ozet dosyasi cok kisa; yayinlanmadi")
 
-    index_yaz()
-
-    # "arama" klasoru: yeni ve degisen aylik parcalar ile (varsa) silinen parca birlikte eklenir
-    git("add", "index.json", "arama.json", "arama", "mevzuat", "ozetler/" + tarih + ".html")
-    # Yeniden denemede (onceki calistirma commit etmis olabilir) ikinci kez commit etme
-    if git("diff", "--cached", "--quiet", check=False).returncode != 0:
-        kimlik = []
-        if not git("config", "user.name", check=False, capture=True).stdout.strip():
-            kimlik = ["-c", "user.name=Resmi Gazete Ozet", "-c", "user.email=resmi-gazete-ozet@users.noreply.github.com"]
-        git(*kimlik, "commit", "-m", "Ozet " + tarih)
-
     if len(sys.argv) == 3:
         hedef = sys.argv[2]
     else:
@@ -232,6 +240,19 @@ def main():
         hedef = dal if dal.startswith("claude/") else "main"
     if not re.fullmatch(r"[A-Za-z0-9._/-]+", hedef) or hedef.startswith("-"):
         sys.exit("Gecersiz dal adi: " + hedef)
+
+    index_yaz()
+
+    # "arama" klasoru: yeni ve degisen aylik parcalar ile (varsa) silinen parca birlikte eklenir
+    git("add", "index.json", "arama.json", "arama", "mevzuat", "ozetler/" + tarih + ".html")
+    if hedef == "main":
+        git("add", "-A", "--", *SITE_YOLLARI, check=False)
+    # Yeniden denemede (onceki calistirma commit etmis olabilir) ikinci kez commit etme
+    if git("diff", "--cached", "--quiet", check=False).returncode != 0:
+        kimlik = []
+        if not git("config", "user.name", check=False, capture=True).stdout.strip():
+            kimlik = ["-c", "user.name=Resmi Gazete Ozet", "-c", "user.email=resmi-gazete-ozet@users.noreply.github.com"]
+        git(*kimlik, "commit", "-m", "Ozet " + tarih)
 
     if not gonder_dene(hedef):
         print("GONDERILEMEDI", hedef)
