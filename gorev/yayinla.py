@@ -45,7 +45,7 @@ def gonder_dene(hedef, deneme=6):
             git("rebase", "--abort", check=False)
             continue
         index_yaz()
-        git("add", "index.json", "arama.json", "arama", check=False)
+        git("add", "index.json", "arama.json", "arama", "mevzuat", check=False)
         if git("diff", "--cached", "--quiet", check=False).returncode != 0:
             git("-c", "user.name=Resmi Gazete Ozet", "-c", "user.email=resmi-gazete-ozet@users.noreply.github.com",
                 "commit", "-q", "-m", "Dizin yenilendi", check=False)
@@ -190,6 +190,17 @@ def index_yaz():
             },
             f, separators=(",", ":"),
         )
+    mevzuat_yaz()
+
+
+def mevzuat_yaz():
+    """2.5: "Mevzuat" ekraninin kurum raflarini (mevzuat/) yeniden yazar. Yazilamazsa ozetin yayini engellenmez."""
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import mevzuat_dizin
+        mevzuat_dizin.yaz(KOK)
+    except Exception as hata:  # raflar ozetten turetilir; bir sonraki yayinda yeniden yazilir
+        print("UYARI mevzuat raflari yazilamadi:", hata)
 
 
 def main():
@@ -206,7 +217,7 @@ def main():
     index_yaz()
 
     # "arama" klasoru: yeni ve degisen aylik parcalar ile (varsa) silinen parca birlikte eklenir
-    git("add", "index.json", "arama.json", "arama", "ozetler/" + tarih + ".html")
+    git("add", "index.json", "arama.json", "arama", "mevzuat", "ozetler/" + tarih + ".html")
     # Yeniden denemede (onceki calistirma commit etmis olabilir) ikinci kez commit etme
     if git("diff", "--cached", "--quiet", check=False).returncode != 0:
         kimlik = []

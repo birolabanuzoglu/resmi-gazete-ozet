@@ -11,6 +11,9 @@
 # 2.3 (2026-11-18): daldan yalnizca ozetler ve arsiv/durum.json alinir; index.json, arama.json ve
 # arama/ parcalari main'de, main'deki gorev/yayinla.py ile yeniden uretilir. Boylece gunluk ozet ve
 # arsiv ayni anda yayimlasa bile tek satirlik index.json'da birlestirme catismasi olmaz.
+#
+# 2.5 (2026-11-24): "Mevzuat" kurum raflari (mevzuat/*.json, mevzuat/r/*.json) da ayni sekilde main'de
+# yeniden uretilir; dalda bulunmalarina izin verilir ama daldan alinmazlar.
 name: Ozeti yayinla
 
 on:
@@ -56,7 +59,7 @@ jobs:
           else
             echo "Degisen dosyalar:"
             printf '%s\n' "${degisen}"
-            izinsiz="$(printf '%s\n' "${degisen}" | grep -Ev '^(index\.json|arama\.json|arama/[0-9]{6}\.json|ozetler/[0-9]{8}\.html|arsiv/durum\.json)$' || true)"
+            izinsiz="$(printf '%s\n' "${degisen}" | grep -Ev '^(index\.json|arama\.json|arama/[0-9]{6}\.json|mevzuat/(r/)?[a-z0-9_-]+\.json|ozetler/[0-9]{8}\.html|arsiv/durum\.json)$' || true)"
             silinen="$(git diff --name-only --diff-filter=D "origin/main...origin/${DAL}" | grep -E '^(ozetler|arsiv)/' || true)"
             alinacak="$(printf '%s\n' "${degisen}" | grep -E '^(ozetler/[0-9]{8}\.html|arsiv/durum\.json)$' || true)"
             ozet_sayisi="$(printf '%s\n' "${alinacak}" | grep -c '^ozetler/' || true)"
@@ -121,7 +124,7 @@ jobs:
                 fi
                 # Liste ve arama dizini main'deki betikle yeniden uretilir
                 python3 -c 'import sys; sys.path.insert(0, "gorev"); import yayinla; yayinla.index_yaz()'
-                yollar="ozetler index.json arama.json arama"
+                yollar="ozetler index.json arama.json arama mevzuat"
                 if [ -d arsiv ]; then yollar="${yollar} arsiv"; fi
                 git add -A -- ${yollar}
                 if git diff --cached --quiet; then
