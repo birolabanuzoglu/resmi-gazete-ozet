@@ -126,7 +126,8 @@ def mistral_cagir(anahtar: str, mesajlar: list[dict]) -> str:
                 time.sleep(10)
                 continue
             if yanit.status_code == 401:
-                raise RuntimeError("Mistral anahtarı geçersiz (401); MISTRAL_API_KEY'i yenileyin.")
+                raise RuntimeError(f"Mistral anahtarı reddedildi (401): {yanit.text[:200]} "
+                                   "(yeni anahtar birkaç dakikada etkinleşir; plan seçilmemiş olabilir)")
             if yanit.status_code in (403, 404):
                 print(f"  -> {model} bu hesapta kullanılamıyor ({yanit.status_code}), sıradakine geçiliyor...")
                 KULLANILAMAZ_MODELLER.add(model)
