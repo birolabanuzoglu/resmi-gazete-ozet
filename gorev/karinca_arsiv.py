@@ -188,6 +188,9 @@ def karinca_cagir(karinca_key: str, sistem: str, mesajlar: list[dict]) -> str:
 
         parcalar: list[str] = []
         try:
+            # Akis 'text/event-stream' olarak karakter kumesiz gelirse requests ISO-8859-1 sayar ve Turkce
+            # harfler bozulur (24 Kasim: Karinca'nin butun ciktilari denetimden gecemedi); UTF-8 zorlanir.
+            yanit.encoding = "utf-8"
             for satir in yanit.iter_lines(decode_unicode=True):
                 if not satir or not satir.startswith("data:"):
                     continue
