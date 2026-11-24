@@ -64,18 +64,20 @@ gönderilmez ve uygulamayı kaldırdığınızda silinir:
 - Yürürlük takviminde kurduğunuz hatırlatıcılar,
 - Tema (Açık / Koyu / Sistem), yazı boyutu, sesli okuma hızı ve açılış süzgeci ("Sadece
   Personel", "Sadece Yönetmelikler" gibi) tercihleriniz,
-- Bildirim Radarı'na yazdığınız takip kelimeleri,
+- Bildirim Radarı'na yazdığınız takip kelimeleri, takip ettiğiniz kurumlar, kaydettiğiniz aramalar ve
+  seçtiğiniz meslek (yalnızca öneri göstermek için),
 - Geçmiş listesi için kullanılan teknik bilgiler (özetlerin tarihleri ve boyutları).
 
-"Kayıtları yedekle"yi seçtiğinizde kaydedilen maddeler, notlar, Bildirim Radarı kelimeleri, yürürlük
+"Kayıtları yedekle"yi seçtiğinizde kaydedilen maddeler, notlar, Bildirim Radarı kelimeleri, kurumları ve kayıtlı aramaları, yürürlük
 hatırlatıcıları ve ayarlar (tema, yazı boyutu, okuma hızı, süzgeç tercihi) tek bir dosyaya yazılır; dosya yalnızca sizin seçtiğiniz yere (ör. telefonun Dosyalar uygulaması ya da
 Google Drive) kaydedilir ve uygulama onu kendisi hiçbir yere göndermez. Ana ekran widget'ı yalnızca
 telefondaki özetin bilgilerini gösterir.
 
 Uygulama içi aramalar cihazdaki özetlerde ve indirilmiş arama dizininde yapılır; aradığınız
-sözcükler kaydedilmez ve hiçbir yere gönderilmez ("tüm arşivde ara"yı kendiniz seçmedikçe).
-Bildirim Radarı'ndaki kelimeler yeni özetle cihazda karşılaştırılır; kelimeler hiçbir yere
-gönderilmez.
+sözcükler kaydedilmez ve hiçbir yere gönderilmez ("tüm arşivde ara"yı kendiniz seçmedikçe; "Aramayı kaydet"e
+dokunursanız arama yalnızca bu telefonda saklanır). Bildirim Radarı'ndaki kelimeler ve kayıtlı aramalar yeni
+özetle cihazda karşılaştırılır; takip ettiğiniz kurumlar için uygulama Mevzuat ekranının kullandığı kurum
+raflarını aynı yerden (GitHub) indirir. Kelimeler, kurumlar ve aramalar hiçbir yere gönderilmez.
 
 6698 sayılı Kişisel Verilerin Korunması Kanunu (KVKK) kapsamında uygulama, kullanıcılarına ait
 hiçbir kişisel veriyi işlemez.
@@ -190,18 +192,21 @@ anywhere and are deleted when you uninstall the app:
 - The reminders you set in the effective-date calendar,
 - Your theme (Light / Dark / System), text size, text-to-speech speed and start filter
   ("Sadece Personel", "Sadece Yönetmelikler" and similar) choices,
-- The keywords you enter in the "Bildirim Radarı" (notification radar),
+- The keywords you enter in the "Bildirim Radarı" (notification radar), the institutions you follow, your saved
+  searches and the profession you pick (used only to show suggestions),
 - Technical data used for the history list (dates and sizes of the summaries).
 
-When you choose "Kayıtları yedekle" (back up), your saved items, notes, radar keywords, effective-date
+When you choose "Kayıtları yedekle" (back up), your saved items, notes, radar keywords, followed institutions and saved searches, effective-date
 reminders and settings (theme, text size, reading speed, filter preference) are written to a single file; the file is saved only where you choose (e.g. the phone's Files app or
 Google Drive) and the app never sends it anywhere by itself. The home screen widget shows only
 information from the summary stored on the phone.
 
 In-app searches run over the summaries and the downloaded search index on the device; search
-terms are not stored or sent anywhere (unless you choose "search the whole archive" yourself).
-Notification radar keywords are matched against new summaries on the device and are never sent
-anywhere.
+terms are not stored or sent anywhere (unless you choose "search the whole archive" yourself; if you tap
+"Aramayı kaydet" (save search), the search is kept only on this phone). Radar keywords and saved searches are
+matched against new summaries on the device; for followed institutions the app downloads the institution
+shelves used by the Mevzuat screen from the same place (GitHub). Keywords, institutions and searches are never
+sent anywhere.
 
 Within the meaning of the Turkish Personal Data Protection Law No. 6698 (KVKK), the app does not
 process any personal data of its users.

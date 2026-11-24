@@ -1424,7 +1424,7 @@ const MEV = { shelves: null, entries: {} };
 let mevClick = null;
 const MEV_TYPES = [["yon", "Yönetmelik", "yon"], ["teb", "Tebliğ", "teb"], ["kar", "Karar", "karar"], ["kan", "Kanun", "kanun"], ["khk", "Kararname", "karar"],
   ["yar", "Yargı kararı", "yargi"], ["ata", "Atama", "ata"], ["and", "Andlaşma", "gen"], ["dig", "Diğer", "diger"]];
-const MEV_EMOJI = { cb: "🏛️", tbmm: "🏛️", adalet: "⚖️", aile: "👪", calisma: "👷", cevre: "🏗️", disisleri: "🌍", enerji: "⚡", genclik: "🏅", hazine: "💶",
+const MEV_EMOJI = { cb: "🏛️", tbmm: "🗳️", adalet: "⚖️", aile: "👪", calisma: "👷", cevre: "🏗️", disisleri: "🌍", enerji: "⚡", genclik: "🏅", hazine: "💶",
   icisleri: "🚔", kultur: "🎭", meb: "🎓", msb: "🛡️", saglik: "🏥", sanayi: "🏭", tarim: "🌾", ticaret: "🛒", ulastirma: "🚆", epdk: "💡", bddk: "🏦",
   tcmb: "🏦", spk: "📈", sgk: "🤝", yok: "🎓", belediye: "🏙️", meslek: "🧰", andlasma: "🤝", diger: "📁" };
 const mevEmoji = (id, grup) => MEV_EMOJI[id] || ({ "Yargı": "⚖️", "Üniversiteler": "🎓", "Bakanlıklar": "🏢", "Kurum ve kuruluşlar": "🏢" }[grup] || "📁");
