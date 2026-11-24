@@ -431,7 +431,7 @@ function ataPdf() {
   const P = CURP, rows = ataVisible(appointmentRows(ATA.sec.nodes));
   const nm = t => (t.split("(")[0].trim() || "—");
   const scope = [ATA.top ? "Yalnızca üst düzey" : "", ATA.titles.size ? "Ünvan: " + ATA_TITLES.filter(([k]) => ATA.titles.has(k)).map(([, l]) => l).join(", ") : ""].filter(Boolean).join(" · ");
-  const m = openModal(`<div class="note-doc"><div class="note-top"><b>ATAMA LİSTESİ</b><span>Özet RG · ${longOf(P.k)}${P.d.issue ? ` · Sayı ${esc(P.d.issue)}` : ""}</span></div>` +
+  const m = openModal(`<div class="note-doc"><div class="note-top"><b>ATAMA LİSTESİ</b><span>${longOf(P.k)}${P.d.issue ? ` · Sayı ${esc(P.d.issue)}` : ""}</span></div>` +
     `<h2>${rows.length} atama${scope ? ` <small>(${esc(scope)})</small>` : ""}</h2><table class="ata-tbl"><tr><th>#</th><th>Görev</th><th>Kurum</th><th>Eski</th><th>Yeni</th></tr>` +
     rows.map((r, i) => { const parts = r.position.split(" · ").map(x => x.trim()).filter(Boolean); return `<tr><td>${i + 1}</td><td>${isSenior(r.position) ? "⭐ " : ""}${esc(parts[parts.length - 1] || r.position)}</td><td>${esc(parts.slice(0, -1).join(" · "))}</td><td>${esc(nm(r.old))}</td><td><b>${esc(nm(r.nw))}</b></td></tr>`; }).join("") +
     `</table><p class="note-foot">Adlar Resmî Gazete'de yayımlanan atama kararlarından aktarılmıştır; bağlayıcı olan kararın kendisidir. Yapay zekâ ile hazırlanan özetten derlenmiştir. ${esc(new URL(dayUrl(P.k), location.href).href)}</p></div>` +
@@ -724,7 +724,7 @@ async function showDay(k, q, madde) {
   $app.innerHTML = s;
 
   const lead = ozet ? ozet.nodes.map(el => el.textContent.trim()).join(" ") : "";
-  setMeta(`${longOf(k)} Resmî Gazete özeti${d.issue ? ` · Sayı ${d.issue}` : ""} | Özet RG`,
+  setMeta(`${longOf(k)} Resmî Gazete özeti${d.issue ? ` · Sayı ${d.issue}` : ""} | Resmî Gazete Özeti`,
     lead ? lead.slice(0, 158) + (lead.length > 158 ? "…" : "") : `${longOf(k)} tarihli Resmî Gazete'nin özeti.`, dayUrl(k));
 
   wireDay(k, d, ozet);
@@ -977,7 +977,7 @@ function showMissing(k) {
     (ok ? `<a class="cta" href="https://www.resmigazete.gov.tr/eskiler/${k.slice(0, 4)}/${k.slice(4, 6)}/${k}.htm" target="_blank" rel="noopener">` +
       `<span class="cta-ic">${ic("bank")}</span><span class="cta-tx"><b>Resmî Gazete'de aç</b><small>O günün fihristi · resmigazete.gov.tr</small></span>` +
       `<span class="cta-go">${ic("arrow")}</span></a>` + `<p class="hint">Bu günün özeti henüz yazılmadı. Resmî fihristi tarayıcıdan okuyamadığımız için yapay zekâ bağlantıdaki sayfayı kendisi okur.</p>` + `<button class="ask-day" type="button" data-ask-official>${ic("spark")}<span><b>Bu sayıyı yapay zekâya sor</b><small>Resmî fihristi okuyup özetletin, üst yazı ya da süre planı isteyin</small></span>${ic("arrow")}</button>` : "") + `</section>`;
-  setMeta("Özet bulunamadı | Özet RG", "", ok ? dayUrl(k) : "./");
+  setMeta("Özet bulunamadı | Resmî Gazete Özeti", "", ok ? dayUrl(k) : "./");
 }
 
 // ------------------------------------------------------------------ geçmiş ve arama
@@ -1025,7 +1025,7 @@ async function showList(q, tur) {
   // Masaüstü tarayıcılarda takvimi açmak için (dokunulan yer görünmez tarih kutusu)
   date.addEventListener("click", () => { try { date.showPicker(); } catch (e) { /* desteklenmiyor */ } });
   renderDays(q, tur);
-  setMeta(q ? `“${q}” araması | Özet RG` : "Geçmiş özetler | Özet RG", "Resmî Gazete özetlerinin tamamı: günlere göre liste ve arama.", "?gecmis");
+  setMeta(q ? `“${q}” araması | Resmî Gazete Özeti` : "Geçmiş özetler | Resmî Gazete Özeti", "Resmî Gazete özetlerinin tamamı: günlere göre liste ve arama.", "?gecmis");
   if (new URLSearchParams(location.search).has("ara") && !q) input.focus();
   if (location.hash === "#tarih") $app.querySelector("#tarih").scrollIntoView({ block: "center" });
 }
@@ -1156,7 +1156,7 @@ function drawerBody() {
     `<div class="dr-line"></div>` +
     drRow("#", "share", "Siteyi paylaş", "Arkadaşlarınla paylaş", false, " data-dshare") +
     drRow("?hakkinda", "info", "Hakkında", "Geliştirici, gizlilik, telif", page === "hakkinda", " data-nav") +
-    `<p class="dr-foot">Özet RG · Web sitesi · © 2026</p>`;
+    `<p class="dr-foot">Web sitesi · © 2026</p>`;
 }
 
 function renderDrawer() {
@@ -1166,7 +1166,7 @@ function renderDrawer() {
   const old = panel.querySelector(".dr-body");
   const y = old ? old.scrollTop : 0;
   const focus = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.dsec : "";
-  panel.innerHTML = `<div class="dr-head"><img src="icon.png" alt="" width="46" height="46"><div><small>ÖZET RG</small><b>Günlük Resmî Gazete ve Mevzuat Özeti</b></div>` +
+  panel.innerHTML = `<div class="dr-head"><img src="icon.png" alt="" width="46" height="46"><div><small>RESMÎ GAZETE</small><b>Günlük Resmî Gazete ve Mevzuat Özeti</b></div>` +
     `<button type="button" class="dr-x" data-dclose aria-label="Menüyü kapat">${ic("close")}</button>` +
     `<p>${INDEX ? `${sayi(INDEX.tarihler.length)} günün özeti · son: ${longOf(INDEX.guncel)}` : "Resmî Gazete'nin günlük özeti"}</p></div>` +
     `<div class="dr-body">${drawerBody()}</div>`;
@@ -1278,7 +1278,7 @@ document.addEventListener("click", e => {
 
 async function shareSite() {
   const url = new URL("./", location.href).href;
-  if (navigator.share) { try { await navigator.share({ title: "Günlük Resmî Gazete ve Mevzuat Özeti · Özet RG", url }); } catch (x) { /* vazgeçildi */ } return; }
+  if (navigator.share) { try { await navigator.share({ title: "Günlük Resmî Gazete ve Mevzuat Özeti", url }); } catch (x) { /* vazgeçildi */ } return; }
   try { await navigator.clipboard.writeText(url); toast("Bağlantı kopyalandı"); } catch (x) { prompt("Bağlantı:", url); }
 }
 
@@ -1300,7 +1300,7 @@ const daysBetween = (a, b) => Math.round((tsOf(b) - tsOf(a)) / 864e5);
 function icsOf(title, k) {
   const d = n => keyOf(tsOf(k) + n * 864e5);
   const esc2 = t => t.replace(/[\;,]/g, m => "\\" + m);
-  return ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Özet RG//TR", "BEGIN:VEVENT",
+  return ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Resmi Gazete Ozeti//TR", "BEGIN:VEVENT",
     `UID:${k}-${Math.abs([...title].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 7))}@ozetrg`,
     `DTSTAMP:${todayKey()}T000000Z`, `DTSTART;VALUE=DATE:${k}`, `DTEND;VALUE=DATE:${d(1)}`,
     `SUMMARY:${esc2("Yürürlük: " + title)}`, "END:VEVENT", "END:VCALENDAR"].join("\r\n");
@@ -1349,7 +1349,7 @@ async function showCalendar() {
     setTimeout(() => URL.revokeObjectURL(url), 2000);
     toast("Takvim dosyası indirildi");
   }));
-  setMeta("Yürürlük Takvimi | Özet RG", "Yürürlüğe girecek düzenlemelerin takvimi.", "?takvim");
+  setMeta("Yürürlük Takvimi | Resmî Gazete Özeti", "Yürürlüğe girecek düzenlemelerin takvimi.", "?takvim");
 }
 
 // ------------------------------------------------------------------ Haftalık ve Aylık Bülten
@@ -1408,12 +1408,12 @@ async function showBulletin(period) {
     setTimeout(() => document.body.classList.remove("printing-page"), 500);
   });
   $app.querySelector(".site-share").addEventListener("click", async () => {
-    const text = `📊 Özet RG ${n === 7 ? "Haftalık" : "Aylık"} Bülten (${longOf(from)} – ${longOf(today)})\n${regs} düzenleme · ${pers.length} personel · ${top.length} üst düzey atama\n` +
+    const text = `📊 Resmî Gazete ${n === 7 ? "Haftalık" : "Aylık"} Bülten (${longOf(from)} – ${longOf(today)})\n${regs} düzenleme · ${pers.length} personel · ${top.length} üst düzey atama\n` +
       aList.slice(0, 5).map(([k, v]) => `• ${k}: ${v}`).join("\n") + `\n${new URL("?bulten=" + n, location.href).href}`;
-    if (navigator.share) { try { await navigator.share({ title: "Özet RG Bülten", text }); } catch (e) { /* vazgeçildi */ } return; }
+    if (navigator.share) { try { await navigator.share({ title: "Resmî Gazete Bülteni", text }); } catch (e) { /* vazgeçildi */ } return; }
     try { await navigator.clipboard.writeText(text); toast("Bülten kopyalandı"); } catch (e) { prompt("Bülten:", text); }
   });
-  setMeta(`${n === 7 ? "Haftalık" : "Aylık"} Bülten | Özet RG`, "Son günlerin düzenleme, personel ve atama özeti.", `?bulten=${n}`);
+  setMeta(`${n === 7 ? "Haftalık" : "Aylık"} Bülten | Resmî Gazete Özeti`, "Son günlerin düzenleme, personel ve atama özeti.", `?bulten=${n}`);
 }
 
 // ------------------------------------------------------------------ Mevzuat (uygulamadaki Mevzuat ekranının web hâli)
@@ -1466,7 +1466,7 @@ function mevGrid(q) {
     mevCoverage() +
     `<form class="srch mv-srch" role="search">${ic("search")}<input type="search" id="mv-q" name="ara" placeholder="Kurum ara… (ör. tarım, üniversite, sağlık)" value="${esc(q)}" autocomplete="off" enterkeyhint="search"><button type="submit">Ara</button></form>` +
     `<div id="mv-body"></div>` +
-    `<p class="note">Raflar, Özet RG'nin hazırladığı Resmî Gazete özetlerinden derlenir; resmî bir kayıt değildir. Bir düzenlemenin yürürlükteki güncel metni için <a href="https://www.mevzuat.gov.tr/" target="_blank" rel="noopener">mevzuat.gov.tr</a>'ye bakın; esas olan Resmî Gazete'deki metindir.</p>`;
+    `<p class="note">Raflar, bu sitenin hazırladığı Resmî Gazete özetlerinden derlenir; resmî bir kayıt değildir. Bir düzenlemenin yürürlükteki güncel metni için <a href="https://www.mevzuat.gov.tr/" target="_blank" rel="noopener">mevzuat.gov.tr</a>'ye bakın; esas olan Resmî Gazete'deki metindir.</p>`;
   const body = document.getElementById("mv-body");
   const draw = text => {
     const words = fold(text).split(/\s+/).filter(Boolean);
@@ -1486,7 +1486,7 @@ function mevGrid(q) {
   form.addEventListener("submit", e => { e.preventDefault(); clearTimeout(timer); apply(); input.blur(); });
   input.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(apply, 200); });
   draw(q);
-  setMeta("Mevzuat: kurumlara göre düzenlemeler | Özet RG", "Resmî Gazete'de yayımlanan düzenlemeler kurumlara göre: bakanlıklar, kurullar, üniversiteler, yargı. Yönetmelik, tebliğ, karar ve kanun özetleri.", "?mevzuat");
+  setMeta("Mevzuat: kurumlara göre düzenlemeler | Resmî Gazete Özeti", "Resmî Gazete'de yayımlanan düzenlemeler kurumlara göre: bakanlıklar, kurullar, üniversiteler, yargı. Yönetmelik, tebliğ, karar ve kanun özetleri.", "?mevzuat");
 }
 
 /** Bir rafın (ya da "Son düzenlemeler"in) listesi: arama, tür çipleri, kartlar */
@@ -1503,7 +1503,7 @@ function mevList(id, shelf, entries, tur, q) {
     `<section class="card hero mv-hero"><div class="kicker">${esc(feed ? "TÜM KURUMLAR" : up(shelf.grup))}</div><h1>${esc(title)}</h1><div class="sub">${sub.map(x => `<span>${esc(x)}</span>`).join("")}</div></section>` +
     `<form class="srch mv-srch" role="search">${ic("search")}<input type="search" id="mv-q" name="ara" placeholder="${feed ? "Son düzenlemelerde ara…" : "Bu rafta ara…"}" value="${esc(q)}" autocomplete="off" enterkeyhint="search"><button type="submit">Ara</button></form>` +
     `<div class="mv-types" id="mv-types"></div><div id="mv-list"></div>` +
-    `<p class="note">Raflar, Özet RG'nin hazırladığı Resmî Gazete özetlerinden derlenir; resmî bir kayıt değildir. Yürürlükteki güncel metin için <a href="https://www.mevzuat.gov.tr/" target="_blank" rel="noopener">mevzuat.gov.tr</a>'ye bakın; esas olan Resmî Gazete'deki metindir.</p>`;
+    `<p class="note">Raflar, bu sitenin hazırladığı Resmî Gazete özetlerinden derlenir; resmî bir kayıt değildir. Yürürlükteki güncel metin için <a href="https://www.mevzuat.gov.tr/" target="_blank" rel="noopener">mevzuat.gov.tr</a>'ye bakın; esas olan Resmî Gazete'deki metindir.</p>`;
   const matches = (type) => {
     const words = fold(st.q).split(/\s+/).filter(Boolean);
     return entries.filter(e => (!type || e.k === type) && (!words.length || words.every(w => fold(`${e.b} ${e.s || ""} ${e.a || ""}`).includes(w))));
@@ -1547,7 +1547,7 @@ function mevList(id, shelf, entries, tur, q) {
   };
   $app.addEventListener("click", mevClick);
   draw();
-  setMeta(`Mevzuat: ${title} | Özet RG`, feed ? "Resmî Gazete'de yayımlanan en yeni düzenlemeler, bütün kurumlardan." : `${shelf.ad} tarafından Resmî Gazete'de yayımlanan düzenlemeler: yönetmelik, tebliğ, karar ve kanun özetleri.`, mevUrl(id, "", ""));
+  setMeta(`Mevzuat: ${title} | Resmî Gazete Özeti`, feed ? "Resmî Gazete'de yayımlanan en yeni düzenlemeler, bütün kurumlardan." : `${shelf.ad} tarafından Resmî Gazete'de yayımlanan düzenlemeler: yönetmelik, tebliğ, karar ve kanun özetleri.`, mevUrl(id, "", ""));
 }
 
 // ------------------------------------------------------------------ AI'ya Sor ve Bilgi Notu (uygulamadakinin web uyarlaması)
@@ -1759,7 +1759,7 @@ function openNote(P, item) {
   const details = p.details.length ? detailsHtml(p.details).html : "";
   const cmp = details.startsWith('<div class="cmp">') ? "" : "";
   void cmp;
-  const m = openModal(`<div class="note-doc"><div class="note-top"><b>BİLGİ NOTU</b><span>Özet RG · ${longOf(P.k)}${d.issue ? ` · Sayı ${esc(d.issue)}` : ""}</span></div>` +
+  const m = openModal(`<div class="note-doc"><div class="note-top"><b>BİLGİ NOTU</b><span>${longOf(P.k)}${d.issue ? ` · Sayı ${esc(d.issue)}` : ""}</span></div>` +
     `<h2>${esc(item.title)}</h2><table class="note-meta">` +
     row("Kurum", esc(p.kurum)) + row("Yürürlük", esc(p.yur)) + row("Dayanak", `${longOf(P.k)} tarihli${d.issue ? ` ve ${esc(d.issue)} sayılı` : ""} Resmî Gazete`) +
     row("Bağlantı", /^https?:/.test(item.href) ? `<a href="${esc(item.href)}">${esc(item.href)}</a>` : "") + row("İlgili", esc(p.aud.join(", "))) + `</table>` +
@@ -1787,15 +1787,15 @@ function showAbout() {
     `<a href="${esc(href)}"${attrs}><span class="e">${e}</span><span class="l">${label}</span><span class="go">›</span></a>`;
   $app.innerHTML = `<a class="back" href="./" data-nav>${ic("arrow")}Özete dön</a>` +
     `<section class="card dev"><div class="avatar photo"><img src="gelistirici.jpg" alt="Birol ABANUZOĞLU" width="88" height="88"></div>` +
-    `<h1>Birol ABANUZOĞLU</h1><p class="role">Ziraat Mühendisi · Özet RG'nin geliştiricisi</p><div class="tags">` +
+    `<h1>Birol ABANUZOĞLU</h1><p class="role">Ziraat Mühendisi · Sitenin ve uygulamanın geliştiricisi</p><div class="tags">` +
     ["Kamu Yönetimi", "Mevzuat", "İnsan Kaynakları", "Tarım Ekonomisi", "Dijital Dönüşüm", "Ankara"]
       .map((x, i) => `<span class="${i % 2 ? "tg2" : "tg1"}">${x}</span>`).join("") + `</div></section>` +
-    `<section class="why"><div class="why-k">NEDEN ÖZET RG?</div><blockquote>“Resmî Gazete’yi okumak işimin bir parçası. ` +
-    `Özet RG’yi, aynı ihtiyacı duyan herkes için o sabah okumasını birkaç dakikaya indirmek üzere yaptım.”</blockquote></section>` +
+    `<section class="why"><div class="why-k">NEDEN BU UYGULAMA?</div><blockquote>“Resmî Gazete’yi okumak işimin bir parçası. ` +
+    `Bu uygulamayı, aynı ihtiyacı duyan herkes için o sabah okumasını birkaç dakikaya indirmek üzere yaptım.”</blockquote></section>` +
     `<h2 class="free"><span class="ic how-ic">${ic("bulb")}</span>Nasıl çalışır?</h2><ol class="how">` +
     `<li>Resmî Gazete gece yarısından sonra yayımlanır; metinler <a href="https://www.resmigazete.gov.tr" target="_blank" rel="noopener">resmigazete.gov.tr</a> adresinden alınır.</li>` +
     `<li>Her başlık kısa ve sade bir özete dönüştürülür, konusuna göre etiketlenir; atamalar ve eski–yeni karşılaştırmaları ayrıca gösterilir.</li>` +
-    `<li>Özet her gece bu siteye ve Özet RG Android uygulamasına gelir; asıl metne tek dokunuşla geçersiniz.</li></ol>` +
+    `<li>Özet her gece bu siteye ve Android uygulamasına gelir; asıl metne tek dokunuşla geçersiniz.</li></ol>` +
     `<div class="trans-box ab-warn">${ic("warn")}<div>Resmî bir kamu sitesi değildir. Özetler bilgilendirme amaçlıdır; ` +
     `bağlayıcı olan, Resmî Gazete'de yayımlanan asıl metindir.</div></div>` +
     `<section class="card links">` +
@@ -1804,9 +1804,9 @@ function showAbout() {
     link("mailto:birolabanuzoglu@gmail.com?subject=%C3%96zet%20RG%20Geri%20Bildirim", "✉️", "Bana yazın: birolabanuzoglu@gmail.com") +
     link("https://github.com/birolabanuzoglu/resmi-gazete-ozet/blob/main/GIZLILIK.md", "🛡️", "Gizlilik ve KVKK", ` target="_blank" rel="noopener"`) +
     link("https://github.com/birolabanuzoglu/resmi-gazete-ozet#telif-ve-kullan%C4%B1m", "©️", "Telif ve kullanım", ` target="_blank" rel="noopener"`) +
-    `</section><p class="note ab-foot">Özet RG · Web sitesi · © 2026 · Simgeler: Material Icons (Apache 2.0)</p>`;
+    `</section><p class="note ab-foot">Web sitesi · © 2026 · Simgeler: Material Icons (Apache 2.0)</p>`;
   $app.querySelector("[data-paylas]").addEventListener("click", e => { e.preventDefault(); shareSite(); });
-  setMeta("Hakkında | Özet RG", "Özet RG'yi kim, neden ve nasıl hazırlıyor.", "?hakkinda");
+  setMeta("Hakkında | Resmî Gazete Özeti", "Bu siteyi kim, neden ve nasıl hazırlıyor.", "?hakkinda");
 }
 
 // ------------------------------------------------------------------ sayfa içi arama (uygulamadaki "Ara")

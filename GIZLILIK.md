@@ -1,4 +1,4 @@
-# Günlük Resmî Gazete ve Mevzuat Özeti (Özet RG): Gizlilik Politikası / Privacy Policy
+# Günlük Resmî Gazete ve Mevzuat Özeti: Gizlilik Politikası / Privacy Policy
 
 Son güncelleme / Last updated: 24 Kasım 2026 / 24 November 2026
 
@@ -10,7 +10,7 @@ Geliştirici / Developer: Birol ABANUZOĞLU · İletişim / Contact: <birolabanu
 
 ## Türkçe
 
-**Günlük Resmî Gazete ve Mevzuat Özeti** (kısa adı Özet RG; "uygulama"), T.C. Resmî Gazete'nin kamuya açık günlük
+**Günlük Resmî Gazete ve Mevzuat Özeti** ("uygulama"), T.C. Resmî Gazete'nin kamuya açık günlük
 sayılarını yapay zekâ ile özetleyen bağımsız bir araçtır. Uygulama herhangi bir devlet kurumunu
 temsil etmez ve herhangi bir kamu kurumuyla bağlantılı değildir. Özetlerin kaynağı
 <https://www.resmigazete.gov.tr> adresindeki kamuya açık yayınlardır.
@@ -135,7 +135,7 @@ Bu politika değişirse güncel hâli bu sayfada yayınlanır. Sorularınız iç
 
 ## English
 
-**Günlük Resmî Gazete ve Mevzuat Özeti** (short name: Özet RG; the "app") is an independent tool that uses AI to summarize
+**Günlük Resmî Gazete ve Mevzuat Özeti** (the "app") is an independent tool that uses AI to summarize
 the publicly available daily issues of the Official Gazette of the Republic of Türkiye
 (Resmî Gazete). The app does not represent any government agency and is not affiliated with any
 public institution. The source of the summaries is the public publication at
