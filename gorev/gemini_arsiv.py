@@ -46,13 +46,18 @@ def html_temizle(metin: str) -> str:
 def aktif_modelleri_bul(api_key: str) -> list[str]:
     bulunanlar = list(TERCIH_MODELLER)
     try:
-        r = requests.get(f"{API_BASE}/models", params={"key": api_key}, timeout=20)
+        r = requests.get(f"{API_BASE}/models", headers={"x-goog-api-key": api_key}, timeout=20)
         if r.ok:
             for m in r.json().get("models", []):
                 ad = m.get("name", "").replace("models/", "")
                 metotlar = m.get("supportedGenerationMethods", [])
                 if "generateContent" in metotlar and "gemini" in ad and ad not in bulunanlar:
-                    if not any(x in ad for x in ("flash", "lite", "embedding", "imagen", "veo", "tts", "audio")):
+                    # Yalnizca metin ozetleyebilen "pro" modeller: gorsel, ses, robotik, bilgisayar
+                    # kullanimi ve benzeri ozel modeller ozet icin uygun degil (kalitesiz cikti verir)
+                    yasak = ("flash", "lite", "embedding", "imagen", "veo", "tts", "audio", "image",
+                             "banana", "transcribe", "robotics", "computer", "customtools", "live",
+                             "native", "vision", "nano", "gemma", "learnlm")
+                    if "pro" in ad and not any(x in ad for x in yasak):
                         bulunanlar.append(ad)
     except Exception:
         pass
@@ -133,7 +138,7 @@ def gemini_cagir(api_key: str, modeller: list[str], icerikler: list[dict]) -> st
         }
 
         for deneme in range(2):
-            yanit = requests.post(url, params={"key": api_key}, json=govde, timeout=420)
+            yanit = requests.post(url, headers={"x-goog-api-key": api_key}, json=govde, timeout=420)
             if yanit.status_code == 400 and "thinkingConfig" in govde["generationConfig"]:
                 govde["generationConfig"].pop("thinkingConfig", None)
                 continue
@@ -257,7 +262,7 @@ def main() -> int:
                 if hedef_html.exists():
                     hedef_html.unlink()
                 hata_satiri = next((s for s in denetim.splitlines() if "HATA" in s), "denetim hatası")
-                calistir([sys.executable, "gorev/arsiv.py", "hata", tarih, hata_satiri[:120]])
+                print(f"[{tarih}] denetim gecmedi ({hata_satiri[:80]}): gun isaretlenmedi, sonraki turda yeniden denenecek")
                 continue
 
             yayin_kod, yayin_cikti = calistir([sys.executable, "gorev/yayinla.py", tarih, "main"])
@@ -279,7 +284,7 @@ def main() -> int:
             if hedef_html.exists():
                 hedef_html.unlink()
             print(f"[{tarih}] Hata: {exc}", file=sys.stderr)
-            calistir([sys.executable, "gorev/arsiv.py", "hata", tarih, str(exc)[:120]])
+            print(f"[{tarih}] gecici hata: gun isaretlenmedi, sonraki turda yeniden denenecek (en cok 5 deneme)")
 
     return 0
 

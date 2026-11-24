@@ -335,7 +335,7 @@ def main() -> int:
                 if hedef_html.exists():
                     hedef_html.unlink()
                 hata_satiri = next((s for s in denetim.splitlines() if "HATA" in s), "denetim hatası")
-                calistir([sys.executable, "gorev/arsiv.py", "hata", tarih, hata_satiri[:120]])
+                print(f"[{tarih}] denetim gecmedi ({hata_satiri[:80]}): gun isaretlenmedi, sonraki turda yeniden denenecek")
                 continue
 
             calistir(["git", "pull", "--rebase", "origin", "main"])
@@ -367,7 +367,7 @@ def main() -> int:
             if hedef_html.exists():
                 hedef_html.unlink()
             print(f"[{tarih}] Hata: {exc}", file=sys.stderr)
-            calistir([sys.executable, "gorev/arsiv.py", "hata", tarih, str(exc)[:120]])
+            print(f"[{tarih}] gecici hata: gun isaretlenmedi, sonraki turda yeniden denenecek (en cok 5 deneme)")
 
     return 0
 

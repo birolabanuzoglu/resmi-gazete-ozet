@@ -146,6 +146,66 @@ def denetle(tarih, arsiv):
         goreli = sorted({m.group(1).lower() for m in GORELI.finditer(duz(ozet))})
         if goreli:
             uyarilar.append("goreli zaman ifadesi var (kesin tarih yazilmali): " + ", ".join(goreli))
+    h2, u2 = kaynak_dogrula(ozet, tarih)
+    hatalar += h2
+    uyarilar += u2
+    return hatalar, uyarilar
+
+
+def _kok(s):
+    """Turkce harfleri sadelestirir (ç->c...) ve kucuk harfe cevirir; kaynak karsilastirmasi icin."""
+    s = s.replace("İ", "i").replace("I", "ı").lower()
+    return s.translate(str.maketrans("çğıöşüâîû", "cgiosuaiu"))
+
+
+def kaynak_metni(tarih):
+    """calisma/<tarih>/ icindeki indirilen belgelerin (txt, htm, html) sadelestirilmis metni ve eksiksiz mi (tam)."""
+    klasor = os.path.join(KOK, "calisma", tarih)
+    parcalar = []
+    tam = True  # her PDF'nin metin karsiligi var mi (yoksa kaynak eksik okunur)
+    if os.path.isdir(klasor):
+        for ad in os.listdir(klasor):
+            if ad.lower().endswith(".pdf"):
+                t = os.path.join(klasor, ad + ".txt")
+                if not (os.path.exists(t) and os.path.getsize(t) > 200):
+                    tam = False
+        for ad in sorted(os.listdir(klasor)):
+            if ad.lower().endswith((".txt", ".htm", ".html")):
+                with open(os.path.join(klasor, ad), encoding="utf-8", errors="replace") as f:
+                    parcalar.append(f.read())
+    return _kok(duz(" ".join(parcalar))), tam
+
+
+def kaynak_dogrula(ozet, tarih):
+    """Modelin uydurma yapip yapmadigini kaynakla karsilastirir (model bagimsiz).
+
+    - Atamalar tablosundaki "Yeni" gorevli adlari: her sozcuk indirilen belgelerde gecmeli (HATA).
+    - "Karar Sayisi: N" ve "No: N" gibi numaralar belgelerde gecmeli (UYARI).
+    Kaynakta yeterli metin yoksa (taranmis PDF) denetlenmez.
+    """
+    hatalar, uyarilar = [], []
+    kaynak, tam = kaynak_metni(tarih)
+    if len(kaynak) < 1500 or not tam:
+        return hatalar, uyarilar  # taranmis PDF ya da eksik okuma: kaynakla karsilastirilamaz
+    bolum = re.search(r"(?is)<h2[^>]*>\s*Atamalar.*?</h2>(.*?)(?=<h2|\Z)", ozet)
+    eksik = []
+    if bolum:
+        for satir in re.findall(r"(?is)<tr[^>]*>(.*?)</tr>", bolum.group(1))[1:]:
+            hucre = re.findall(r"(?is)<td[^>]*>(.*?)</td>", satir)
+            if len(hucre) < 3:
+                continue
+            ad = duz(hucre[2]).split("(")[0].strip()
+            if not ad or ad.lower().startswith(("belirtilmem", "—", "-")):
+                continue
+            kelimeler = [k for k in re.findall(r"[^\W\d_]{3,}", _kok(ad))]
+            if kelimeler and not all(k in kaynak for k in kelimeler):
+                eksik.append(ad)
+    if eksik:
+        hatalar.append("atama adi indirilen belgelerde bulunamadi (uydurma olabilir): " + "; ".join(sorted(set(eksik))[:8]))
+    sayilar = set(re.findall(r"(?i)(?:Karar Say[ıi]s[ıi]|Say[ıi]s[ıi]|No)\s*:\s*(\d{3,6})", duz(ozet)))
+    yok = sorted(n for n in sayilar if n not in kaynak)
+    if yok:
+        uyarilar.append("ozetteki sayi(lar) belgelerde gecmiyor: " + ", ".join(yok[:10]))
     return hatalar, uyarilar
 
 
