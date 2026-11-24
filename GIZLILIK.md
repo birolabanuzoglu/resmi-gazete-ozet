@@ -1,6 +1,6 @@
-# Özet RG: Gizlilik Politikası / Privacy Policy
+# Günlük Resmî Gazete ve Mevzuat Özeti (Özet RG): Gizlilik Politikası / Privacy Policy
 
-Son güncelleme / Last updated: 18 Kasım 2026 / 18 November 2026
+Son güncelleme / Last updated: 24 Kasım 2026 / 24 November 2026
 
 Geliştirici / Developer: Birol ABANUZOĞLU · İletişim / Contact: <birolabanuzoglu@gmail.com>
 
@@ -10,7 +10,7 @@ Geliştirici / Developer: Birol ABANUZOĞLU · İletişim / Contact: <birolabanu
 
 ## Türkçe
 
-**Özet RG: Günlük Mevzuat Özeti** ("uygulama"), T.C. Resmî Gazete'nin kamuya açık günlük
+**Günlük Resmî Gazete ve Mevzuat Özeti** (kısa adı Özet RG; "uygulama"), T.C. Resmî Gazete'nin kamuya açık günlük
 sayılarını yapay zekâ ile özetleyen bağımsız bir araçtır. Uygulama herhangi bir devlet kurumunu
 temsil etmez ve herhangi bir kamu kurumuyla bağlantılı değildir. Özetlerin kaynağı
 <https://www.resmigazete.gov.tr> adresindeki kamuya açık yayınlardır.
@@ -27,8 +27,9 @@ Uygulama **hiçbir kişisel veri toplamaz, saklamaz ya da paylaşmaz.**
 
 Uygulama iki adrese bağlanır ve bu bağlantılarda hiçbir kişisel bilgi göndermez:
 
-- Günlük özetleri ve arama dizinini indirmek için GitHub'ın dosya sunucusu
-  (`raw.githubusercontent.com`),
+- Günlük özetleri, arama dizinini ve (Mevzuat ekranını açtığınızda) özetlerden derlenen kurum
+  raflarını indirmek için GitHub'ın dosya sunucusu (`raw.githubusercontent.com`); hangi rafa
+  baktığınız ya da ne aradığınız hiçbir yere gönderilmez,
 - Yalnızca siz "Tarih Seç" ile özeti olmayan eski bir günü açtığınızda, o günün fihristini
   almak için Resmî Gazete'nin sitesi (`www.resmigazete.gov.tr`).
 
@@ -134,7 +135,7 @@ Bu politika değişirse güncel hâli bu sayfada yayınlanır. Sorularınız iç
 
 ## English
 
-**Özet RG: Günlük Mevzuat Özeti** (the "app") is an independent tool that uses AI to summarize
+**Günlük Resmî Gazete ve Mevzuat Özeti** (short name: Özet RG; the "app") is an independent tool that uses AI to summarize
 the publicly available daily issues of the Official Gazette of the Republic of Türkiye
 (Resmî Gazete). The app does not represent any government agency and is not affiliated with any
 public institution. The source of the summaries is the public publication at
@@ -152,8 +153,9 @@ The app **does not collect, store or share any personal data.**
 
 The app connects to two addresses and sends no personal information to either:
 
-- GitHub's file server (`raw.githubusercontent.com`) to download the daily summaries and the
-  search index,
+- GitHub's file server (`raw.githubusercontent.com`) to download the daily summaries, the search
+  index and (when you open the Mevzuat screen) the institution shelves compiled from the summaries;
+  which shelf you look at or what you search for is never sent anywhere,
 - Only when you open an older day without a summary via "Tarih Seç" (pick a date), the Official
   Gazette website (`www.resmigazete.gov.tr`) to fetch that day's table of contents.
 
