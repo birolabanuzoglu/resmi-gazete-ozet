@@ -15,7 +15,9 @@ permissions:
   contents: write
 
 concurrency:
-  group: evren-arsiv
+  # Zamanlanmis turlar tek grupta sirayla calisir; elle baslatilan her tur kendi grubunda, yani
+  # birbirini ve zamanlanmis turu beklemeden paralel calisir (gunleri arsiv.py ayirir).
+  group: ${{ github.event_name == 'workflow_dispatch' && format('evren-arsiv-elle-{0}', github.run_id) || 'evren-arsiv' }}
   cancel-in-progress: false
 
 jobs:
