@@ -341,7 +341,9 @@ def main() -> int:
             _, denetim = calistir([sys.executable, "gorev/denetle.py", tarih, "--arsiv"])
             print(f"[denetle.py {tarih}]\n{denetim}")
 
-            if "DENETIM_HATA" in denetim or "UYARI" in denetim:
+            duzeltme = 0
+            # Ilk duzeltme HATA ya da UYARI icin; sonraki duzeltmeler (toplam en cok 3 tur) yalnizca HATA icin.
+            while duzeltme < 3 and ("DENETIM_HATA" in denetim or (duzeltme == 0 and "UYARI" in denetim)):
                 mesajlar.append({"role": "assistant", "content": html_icerik})
                 mesajlar.append(
                     {
@@ -356,7 +358,8 @@ def main() -> int:
                 html_icerik = evren_cagir(evren_key, mesajlar)
                 hedef_html.write_text(html_icerik, encoding="utf-8")
                 _, denetim = calistir([sys.executable, "gorev/denetle.py", tarih, "--arsiv"])
-                print(f"[denetle.py 2. tur {tarih}]\n{denetim}")
+                duzeltme += 1
+                print(f"[denetle.py {duzeltme + 1}. tur {tarih}]\n{denetim}")
 
             if "DENETIM_TAMAM" not in denetim:
                 if hedef_html.exists():
