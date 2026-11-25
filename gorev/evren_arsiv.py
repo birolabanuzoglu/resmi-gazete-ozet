@@ -283,6 +283,7 @@ def main() -> int:
 
     tamamlanan = 0
     beklenmeyen = 0
+    indirme_hatasi = 0
     baslangic = time.monotonic()
     while tamamlanan < hedef_adet:
         if time.monotonic() - baslangic > 38 * 60:
@@ -322,8 +323,14 @@ def main() -> int:
             calistir([sys.executable, "gorev/arsiv.py", "hata", tarih, "sayı bulunamadı"])
             continue
         if indir_ilk.startswith("AG_HATASI") or not indir_ilk.startswith("HAZIR "):
-            print(f"İndirme sorunu:\n{indir_cikti}", file=sys.stderr)
-            return 1
+            print(f"İndirme sorunu (gün sonra yeniden denenecek):\n{indir_cikti}", file=sys.stderr)
+            indirme_hatasi += 1
+            if indirme_hatasi >= 4:
+                print("Bilgi: resmigazete.gov.tr art arda 4 kez yanıt vermedi; tur bitiriliyor, sonraki tur devam eder.")
+                return 0
+            time.sleep(20)
+            continue
+        indirme_hatasi = 0
 
         klasor = Path(indir_ilk.split(" ", 1)[1].strip())
         if not klasor.is_absolute():
