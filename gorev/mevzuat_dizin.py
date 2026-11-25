@@ -89,7 +89,7 @@ RAFLAR = [
     ("tuik", "TÜİK (Türkiye İstatistik Kurumu)", G_KUR, ["tüik", "türkiye istatistik kurumu"]),
     ("patent", "Türk Patent ve Marka Kurumu", G_KUR, ["türk patent", "türkpatent"]),
     ("titck", "TİTCK (Türkiye İlaç ve Tıbbi Cihaz Kurumu)", G_KUR, ["titck", "türkiye ilaç ve tıbbi cihaz"]),
-    ("tseb", "Türkiye Sağlık Enstitüleri Başkanlığı", G_KUR, ["türkiye sağlık enstitüleri"]),
+    ("tseb", "Türkiye Sağlık Enstitüleri Başkanlığı", G_KUR, ["türkiye sağlık enstitüleri", "tüseb"]),
     ("myk", "Meslekî Yeterlilik Kurumu", G_KUR, ["mesleki yeterlilik"]),
     ("bik", "Basın İlan Kurumu", G_KUR, ["basın ilan kurumu"]),
     ("kosgeb", "KOSGEB", G_KUR, ["kosgeb"]),
@@ -102,6 +102,9 @@ RAFLAR = [
     ("sayistay", "Sayıştay", G_KUR, ["sayıştay"]),
     ("siber", "Siber Güvenlik Başkanlığı", G_KUR, ["siber güvenlik"]),
     ("meteoroloji", "Meteoroloji Genel Müdürlüğü", G_KUR, ["meteoroloji genel"]),
+    ("ilbank", "İller Bankası", G_KUR, ["iller bankası", "ilbank"]),
+    ("rtuk", "RTÜK (Radyo ve Televizyon Üst Kurulu)", G_KUR, ["rtük", "radyo ve televizyon üst kurulu"]),
+    ("tenmak", "TENMAK (Türkiye Enerji, Nükleer ve Maden Araştırma Kurumu)", G_KUR, ["tenmak", "enerji nükleer ve maden araştırma"]),
 
     ("aym", "Anayasa Mahkemesi", G_YAR, ["anayasa mahkemesi*"]),
     ("yargitay", "Yargıtay", G_YAR, ["yargıtay*"]),
