@@ -313,12 +313,15 @@ def main() -> int:
 
     tamamlanan = 0
     beklenmeyen = 0
+    indirme_hatasi = 0
     ust_uste_hata = 0
     baslangic = time.monotonic()
     while tamamlanan < hedef_adet:
-        if ust_uste_hata >= 4:
-            print("Art arda 4 başarısız deneme: tur durduruluyor (nedeni yukarıda); sonraki tur yeniden dener.", file=sys.stderr)
-            return 1
+        if ust_uste_hata >= 6:
+            # Eyleme donusturulemeyen durum (cogu kez taranmis PDF'li zor gunler): kirmizi hata + e-posta yerine
+            # basarili cikis; anahtar sorunu ayri ele alinir (anahtar_dene / 401 -> cikis 1).
+            print("Bilgi: art arda 6 başarısız deneme; tur çağrı harcamamak için bitiriliyor (neden yukarıda). Sonraki tur yeniden dener.")
+            return 0
         if time.monotonic() - baslangic > 38 * 60:
             print("Tur zaman butcesi (38 dk) doldu; sonraki saatlik tur devam edecek.")
             break
@@ -356,8 +359,14 @@ def main() -> int:
             calistir([sys.executable, "gorev/arsiv.py", "hata", tarih, "sayı bulunamadı"])
             continue
         if indir_ilk.startswith("AG_HATASI") or not indir_ilk.startswith("HAZIR "):
-            print(f"İndirme sorunu:\n{indir_cikti}", file=sys.stderr)
-            return 1
+            print(f"İndirme sorunu (gün sonra yeniden denenecek):\n{indir_cikti}", file=sys.stderr)
+            indirme_hatasi += 1
+            if indirme_hatasi >= 4:
+                print("Bilgi: resmigazete.gov.tr art arda 4 kez yanıt vermedi; tur bitiriliyor, sonraki tur devam eder.")
+                return 0
+            time.sleep(20)
+            continue
+        indirme_hatasi = 0
 
         klasor = Path(indir_ilk.split(" ", 1)[1].strip())
         if not klasor.is_absolute():
