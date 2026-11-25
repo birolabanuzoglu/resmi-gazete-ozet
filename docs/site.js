@@ -48,6 +48,8 @@ const P = {
   radar: "M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94 7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z",
   filter: "M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z",
   contrast: "M12 22c5.52 0 10-4.48 10-10S17.52 2 12 2 2 6.48 2 12s4.48 10 10 10zm1-17.93c3.94.49 7 3.85 7 7.93s-3.06 7.44-7 7.93V4.07z",
+  "star-o": "M22 9.24l-7.19-.62L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.63-7.03L22 9.24zM12 15.4l-3.76 2.27 1-4.28-3.32-2.88 4.38-.38L12 6.1l1.71 4.04 4.38.38-3.32 2.88 1 4.28L12 15.4z",
+  bell: "M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 1.99 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z",
   info: "M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z",
 };
 const ic = n => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="${P[n]}"/></svg>`;
@@ -732,18 +734,17 @@ async function showDay(k, q, madde) {
 
   wireDay(k, d, ozet);
   setupFilters();
-  const ww = watchWords();
+  const ww = trackedTerms();
   if (ww.length) {
     let hits = 0;
     $app.querySelectorAll(".item").forEach(it => {
-      const text = low(it.textContent);
-      const m = ww.filter(w => text.includes(low(w)));
+      const m = radarHits(it.textContent, ww);
       if (!m.length) return;
       hits++;
       const chips = it.querySelector(".meta-chips") || it.insertAdjacentElement("afterbegin", Object.assign(document.createElement("div"), { className: "meta-chips" }));
       chips.insertAdjacentHTML("beforeend", `<span class="mchip m-radar">🎯 <b>${esc(m.join(", "))}</b></span>`);
     });
-    if (hits) $app.querySelector(".hero").insertAdjacentHTML("beforeend", `<a class="hero-cal" href="#" data-radar>🎯 <span>Takip ettiğiniz kelime ${hits} maddede geçiyor</span></a>`);
+    if (hits) $app.querySelector(".hero").insertAdjacentHTML("beforeend", `<a class="hero-cal" href="#" data-radar>🎯 <span>Takip ettiklerin ${hits} maddede geçiyor</span></a>`);
     const jump = $app.querySelector("[data-radar]");
     if (jump) jump.addEventListener("click", e => { e.preventDefault(); const f = $app.querySelector(".item .m-radar"); if (f) f.closest(".item").scrollIntoView({ block: "center" }); });
   }
@@ -1001,7 +1002,8 @@ async function showList(q, tur) {
     `<div class="lst-chips">` +
     [["", "Tümü"], ["gunluk", "📰 Günlük"], ["arsiv", "🗄️ Arşiv"]].map(([v, t]) =>
       `<a class="fchip${tur === v ? " on" : ""}" href="?gecmis${v ? `&tur=${v}` : ""}${q ? `&ara=${encodeURIComponent(q)}` : ""}" data-nav data-keep>${t}</a>`).join("") +
-    `<label class="fchip date" id="tarih">${ic("cal")}Tarih seç<input type="date" min="2000-01-01" max="${isoOf(today)}"></label></div>` +
+    `<label class="fchip date" id="tarih">${ic("cal")}Tarih seç<input type="date" min="2000-01-01" max="${isoOf(today)}"></label>` +
+    `<button type="button" class="fchip" data-ssave>${ic("radar")}Aramayı kaydet</button></div>` +
     `<div class="arsiv-bar"><div><span>🗄️ <b>Arşiv</b> · 2020'den bu yana</span><span>${sayi(done)} / ${sayi(total)} gün</span></div>` +
     `<i><s style="width:${Math.max(1, (done / total) * 100).toFixed(2)}%"></s></i></div>` +
     (years.length > 1 ? `<div class="years">${years.map(y => `<a class="yr" href="#y-${y}">${y}</a>`).join("")}</div>` : "") +
@@ -1025,6 +1027,16 @@ async function showList(q, tur) {
   input.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(() => apply(false), 250); });
   const date = $app.querySelector('input[type="date"]');
   date.addEventListener("change", e => { if (e.target.value) go(dayUrl(normKey(e.target.value))); });
+  // Bildirim Radarı'na kayıtlı arama (uygulamadaki "Aramayı kaydet")
+  $app.querySelector("[data-ssave]").addEventListener("click", () => {
+    const v = input.value.trim();
+    if (v.length < 2) { toast("Önce aramak istediğiniz kelimeyi yazın"); input.focus(); return; }
+    const cur = savedSearches();
+    if (cur.some(x => fold(x) === fold(v))) { toast("Bu arama zaten kayıtlı"); return; }
+    if (cur.length >= SEARCH_MAX) { toast(`En çok ${SEARCH_MAX} arama kaydedilebilir`); return; }
+    setSearches([...cur, v]);
+    toast("Arama kaydedildi: Bildirim Radarı'nda");
+  });
   // Masaüstü tarayıcılarda takvimi açmak için (dokunulan yer görünmez tarih kutusu)
   date.addEventListener("click", () => { try { date.showPicker(); } catch (e) { /* desteklenmiyor */ } });
   renderDays(q, tur);
@@ -1070,7 +1082,7 @@ function renderDays(q, tur) {
     if (p.sayi) bits.push(`Sayı ${esc(p.sayi)}`);
     bits.push(a ? "🗄️ Arşiv özeti" : p.duzenleme ? `${p.duzenleme} düzenleme` : "");
     if (p.personel) bits.push("👤 Personel");
-    if (watchWords().some(w => queryTokens(w).map(fold).every(t => foldedMetin(k).includes(t)))) bits.push("🎯 Takibinizde");
+    if (trackedTerms().some(w => queryTokens(w).map(fold).every(t => foldedMetin(k).includes(t)))) bits.push("🎯 Takibinizde");
     s += `<a class="day card${a ? " arc" : ""}" href="${dayUrl(k, q)}" data-nav><span class="dcal"><i>${mon3(k)}</i><b>${dayOf(k)}</b></span>` +
       `<span class="dtx"><b>${longOf(k)}</b><small>${bits.filter(Boolean).join(" · ")}</small>` +
       (p.onizleme ? `<span class="pv">${esc(p.onizleme)}</span>` : "") + `</span>${ic("chev")}</a>`;
@@ -1123,13 +1135,6 @@ function savedBlock() {
     `<p class="hint">Henüz kayıt yok. Bir özet sayfasında maddenin ⭐ Kaydet düğmesine dokunun.</p>`) +
     `<div class="site-rec-acts"><button type="button" class="tur-c" data-backup>⬇️ Yedek indir</button><label class="tur-c">⬆️ Yedek yükle<input type="file" accept="application/json" hidden data-restore></label></div>`;
 }
-/** Takip kelimeleri bölümü (Bildirim Radarı'nın web hâli) */
-function watchBlock() {
-  return `<form class="srch site-watch" autocomplete="off"><input type="text" name="k" placeholder="Takip edilecek kelime (ör. ikamet izni)" maxlength="40"><button type="submit">Ekle</button></form>` +
-    `<div class="tags site-wtags">${watchWords().map(w => `<span class="tg1">${esc(w)} <a href="#" data-wdel="${esc(w)}" aria-label="Kaldır">✕</a></span>`).join("") || `<span class="hint">Henüz kelime yok.</span>`}</div>` +
-    `<p class="hint">Takip ettiğiniz kelime bir günün özetinde geçerse Geçmiş listesinde "🎯 Takibinizde" etiketi çıkar ve gün sayfasında ilgili madde işaretlenir. Kelimeler yalnızca bu tarayıcıda saklanır.</p>`;
-}
-
 const DR = { open: false, sec: "", opener: null };
 const drRow = (href, icon, title, detail, on, attrs = "") =>
   `<a class="dr-row${on ? " on" : ""}" href="${href}"${attrs}><span class="dr-ic">${ic(icon)}</span><span class="dr-tx"><b>${title}</b>${detail ? `<small>${detail}</small>` : ""}</span></a>`;
@@ -1140,25 +1145,26 @@ const drSec = (key, icon, title, detail, body, n) =>
 
 function drawerBody() {
   const q = new URLSearchParams(location.search);
-  const page = ["mevzuat", "gecmis", "ara", "takvim", "bulten", "hakkinda"].find(k => q.has(k)) || "";
-  const nSaved = Object.keys(saved()).length, words = watchWords(), keys = prefKeys();
+  const page = ["mevzuat", "gecmis", "ara", "takvim", "bulten", "hakkinda", "radar"].find(k => q.has(k)) || "";
+  const nSaved = Object.keys(saved()).length, keys = prefKeys();
+  const radar = [...watchWords(), ...followed().map(x => agencyLabel(x[0], x[1])), ...savedSearches()];
   const filt = keys.length ? FILTERS.filter(f => keys.includes(f.key)).map(f => f.chip).join(", ") : "Özetler bütün maddelerle açılır";
   const tName = { sistem: "Sistem", acik: "Açık", koyu: "Koyu" }[theme()] || "Sistem";
   const fName = (FONTS.find(x => x[0] === pref("yazi", "1")) || FONTS[1])[1].toLowerCase();
   return drRow("./", "doc", "Bugünün özeti", "En güncel günün özeti", !page, " data-nav") +
     drRow("?mevzuat", "book", "Mevzuat", "Kurumlara göre düzenlemeler", page === "mevzuat", " data-nav") +
     drRow("?gecmis", "history", "Geçmiş", "Arşivde ara, eski günleri aç", page === "gecmis" || page === "ara", " data-nav") +
-    `<div class="dr-lbl">ARAÇLAR</div>` +
     drRow("?takvim", "cal", "Yürürlük takvimi", "Yaklaşan yürürlük tarihleri", page === "takvim", " data-nav") +
     drRow("?bulten=7", "pie", "Haftalık &amp; Aylık Bülten", "Personel mevzuatı, öne çıkanlar, atamalar", page === "bulten", " data-nav") +
-    drSec("takip", "radar", "Takip kelimeleri", words.length ? esc(words.slice(0, 3).join(", ")) + (words.length > 3 ? "…" : "") : "Bildirim Radarı'nın web hâli", watchBlock(), words.length) +
-    drSec("suzgec", "filter", "Süzgeçler", esc(filt), filterBlock()) +
+    drSec("kayit", "star", "Kaydedilenler", nSaved ? `${nSaved} madde` : "Kaydettiğiniz maddeler, notlar ve yedek", savedBlock(), nSaved) +
+    `<div class="dr-lbl">ARAÇLAR</div>` +
+    `<a class="dr-row${page === "radar" ? " on" : ""}" href="?radar" data-nav><span class="dr-ic">${ic("radar")}</span><span class="dr-tx"><b>Bildirim Radarı</b>` +
+    `<small>${radar.length ? esc(radar.slice(0, 3).join(", ")) + (radar.length > 3 ? "…" : "") : "Kelime, kurum ya da arama takip et"}</small></span>` +
+    (radar.length ? `<span class="dr-n">${radar.length}</span>` : "") + `</a>` +
     drSec("gorunum", "contrast", "Görünüm", `${tName} tema · yazı boyutu: ${fName}`, themeBlock()) +
-    `<div class="dr-lbl">KAYITLARIM</div>` +
-    drSec("kayit", "star", "Kayıtlarım", nSaved ? `${nSaved} madde` : "Kaydettiğiniz maddeler ve notlar", savedBlock(), nSaved) +
+    drSec("suzgec", "filter", "Süzgeçler", esc(filt), filterBlock()) +
     `<div class="dr-line"></div>` +
     drRow("#", "share", "Siteyi paylaş", "Arkadaşlarınla paylaş", false, " data-dshare") +
-    drRow("?hakkinda", "info", "Hakkında", "Geliştirici, gizlilik, telif", page === "hakkinda", " data-nav") +
     `<p class="dr-foot">Web sitesi · © 2026</p>`;
 }
 
@@ -1189,18 +1195,14 @@ function drawerEl() {
   el.innerHTML = `<div class="dr-scrim" data-dclose></div><aside class="dr-panel" role="dialog" aria-modal="true" aria-label="Menü"></aside>`;
   document.body.append(el);
   el.addEventListener("click", onDrawerClick);
-  el.addEventListener("submit", e => {
-    if (!e.target.closest(".site-watch")) return;
-    e.preventDefault();
-    const v = e.target.k.value.trim();
-    if (v) { setWatch([...watchWords(), v]); DR.sec = "takip"; renderDrawer(); }
-  });
   el.addEventListener("change", async e => {
     if (!e.target.matches("[data-restore]")) return;
     try {
       const j = JSON.parse(await e.target.files[0].text());
       if (j.kayit && typeof j.kayit === "object") setSaved({ ...saved(), ...j.kayit });
-      if (Array.isArray(j.takip)) setWatch([...watchWords(), ...j.takip]);
+      if (Array.isArray(j.takip)) setWatch(parseWords([...watchWords(), ...j.takip]));
+      if (Array.isArray(j.aramalar)) setSearches([...savedSearches(), ...j.aramalar]);
+      if (Array.isArray(j.kurumlar)) setFollowed([...followed(), ...j.kurumlar.filter(x => Array.isArray(x) && mevOk(x[0]))]);
       toast("Yedek yüklendi"); renderDrawer();
     } catch (x) { toast("Yedek dosyası okunamadı"); }
   });
@@ -1231,14 +1233,12 @@ function onDrawerClick(e) {
   const rdel = t.closest("[data-rdel]");
   if (rdel) { e.preventDefault(); const all = saved(); delete all[rdel.dataset.rdel]; setSaved(all); renderDrawer(); return; }
   if (t.closest("[data-backup]")) {
-    const blob = new Blob([JSON.stringify({ surum: 1, kayit: saved(), takip: watchWords() }, null, 1)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify({ surum: 2, kayit: saved(), takip: watchWords(), aramalar: savedSearches(), kurumlar: followed(), meslek: pref("meslek", "") }, null, 1)], { type: "application/json" });
     const url = URL.createObjectURL(blob), dl = document.createElement("a");
-    dl.href = url; dl.download = "ozet-rg-web-yedek.json"; document.body.append(dl); dl.click(); dl.remove();
+    dl.href = url; dl.download = "resmi-gazete-web-yedek.json"; document.body.append(dl); dl.click(); dl.remove();
     setTimeout(() => URL.revokeObjectURL(url), 2000);
     return;
   }
-  const wdel = t.closest("[data-wdel]");
-  if (wdel) { e.preventDefault(); setWatch(watchWords().filter(w => w !== wdel.dataset.wdel)); renderDrawer(); return; }
   if (t.closest("[data-dshare]")) { e.preventDefault(); shareSite(); }
 }
 
@@ -1429,61 +1429,201 @@ const MEV_TYPES = [["yon", "Yönetmelik", "yon"], ["teb", "Tebliğ", "teb"], ["k
   ["yar", "Yargı kararı", "yargi"], ["ata", "Atama", "ata"], ["and", "Andlaşma", "gen"], ["dig", "Diğer", "diger"]];
 const MEV_EMOJI = { cb: "🏛️", tbmm: "🗳️", adalet: "⚖️", aile: "👪", calisma: "👷", cevre: "🏗️", disisleri: "🌍", enerji: "⚡", genclik: "🏅", hazine: "💶",
   icisleri: "🚔", kultur: "🎭", meb: "🎓", msb: "🛡️", saglik: "🏥", sanayi: "🏭", tarim: "🌾", ticaret: "🛒", ulastirma: "🚆", epdk: "💡", bddk: "🏦",
-  tcmb: "🏦", spk: "📈", sgk: "🤝", yok: "🎓", belediye: "🏙️", meslek: "🧰", andlasma: "🤝", diger: "📁" };
+  tcmb: "🏦", spk: "📈", sgk: "🤝", yok: "🎓", belediye: "🏙️", meslek: "🧰", andlasma: "🤝", diger: "📁", aym: "⚖️", uni: "🎓" };
 const mevEmoji = (id, grup) => MEV_EMOJI[id] || ({ "Yargı": "⚖️", "Üniversiteler": "🎓", "Bakanlıklar": "🏢", "Kurum ve kuruluşlar": "🏢" }[grup] || "📁");
 const mevOk = id => /^[a-z0-9_-]{1,40}$/.test(id || "");
 /** Düzenlemenin Resmî Gazete'deki adresi (dosyada günün adresinden sonraki bölüm ya da tam adres durur) */
 const mevHref = e => /^https?:/.test(e.h || "") ? e.h : `https://www.resmigazete.gov.tr/eskiler/${e.t.slice(0, 4)}/${e.t.slice(4, 6)}/${e.t}${e.h || ""}`;
-const mevUrl = (id, tur, q) => `?mevzuat${id ? `=${id}` : ""}${tur ? `&tur=${tur}` : ""}${q ? `&ara=${encodeURIComponent(q)}` : ""}`;
+const mevUrl = (id, tur, q, yil) => `?mevzuat${id ? `=${id}` : ""}${tur ? `&tur=${tur}` : ""}${yil ? `&yil=${yil}` : ""}${q ? `&ara=${encodeURIComponent(q)}` : ""}`;
+const mevType = k => MEV_TYPES.find(t => t[0] === k) || MEV_TYPES[MEV_TYPES.length - 1];
+/** Kartında "Güncel hâli" (mevzuat.gov.tr araması) çıkan türler */
+const MEV_CURRENT = ["yon", "teb", "kan", "khk"];
+const shortDay = k => `${dayOf(k)} ${monOf(k).slice(0, 3)} ${k.slice(0, 4)}`;
 
 async function mevEntries(id) {
   if (!MEV.entries[id]) MEV.entries[id] = JSON.parse(await getText(id === "yeni" ? "mevzuat/yeni.json" : `mevzuat/r/${id}.json`, true)).m || [];
   return MEV.entries[id];
 }
 
-/** Arşivin ne kadarının raflara yansıdığını söyleyen not (arşiv 2020'den bu yana yeniden eskiye doldurulur) */
-function mevCoverage() {
-  const n = INDEX ? INDEX.tarihler.length : 0;
-  return n ? `<div class="mv-cov">${ic("warn")}<div><b>Raflar arşivle birlikte büyüyor</b>Şu an ${sayi(n)} günün özetinden derlendi; 2020'den bu yana özetler tamamlandıkça eski düzenlemeler de eklenir.</div></div>` : "";
+// ------------------------------------------------------------------ takip: kelimeler, kurumlar, kayıtlı aramalar (Bildirim Radarı)
+
+const RADAR_DAYS = 30;
+const RADAR_MAX = 20, AGENCY_MAX = 15, SEARCH_MAX = 10;
+const RADAR_SUG = ["Memur maaşı", "Ek ders", "Asgari ücret", "KPSS", "Görevde yükselme", "Sözleşmeli personel", "Emeklilik", "Tayin", "Sınav",
+  "Disiplin", "Öğretmen", "Tarımsal destek", "Harç", "Vergi", "Kira", "Burs"];
+const PROFESSIONS = [
+  ["memur", "🏢", "Kamu personeli", ["Memur maaşı", "Görevde yükselme", "Unvan değişikliği", "Yan ödeme", "Disiplin", "Tayin", "İzin", "Emeklilik"], ["calisma", "hazine", "sgk"]],
+  ["ogretmen", "🍎", "Öğretmen", ["Öğretmen", "Ek ders", "Norm kadro", "Sözleşmeli öğretmen", "Rotasyon", "Okul", "Millî Eğitim"], ["meb"]],
+  ["ziraat", "🌾", "Ziraat mühendisi", ["Tarım", "Ziraat", "Tarımsal destek", "Hayvancılık", "Gıda", "Orman", "Kırsal kalkınma", "DSİ"], ["tarim"]],
+  ["saglik", "🩺", "Sağlık çalışanı", ["Sağlık personeli", "Hemşire", "Hekim", "Nöbet", "Döner sermaye", "Hastane", "Eczacı", "İlaç"], ["saglik", "titck"]],
+  ["guvenlik", "👮", "Polis / güvenlik", ["Polis", "Emniyet", "Jandarma", "Bekçi", "Güvenlik", "Silah"], ["icisleri"]],
+  ["akademik", "🎓", "Akademisyen", ["Öğretim üyesi", "Doçentlik", "Araştırma görevlisi", "Lisansüstü", "Üniversite"], ["yok", "uni"]],
+  ["hukuk", "⚖️", "Hukukçu", ["Avukat", "Hâkim", "Savcı", "Noter", "Arabulucu", "Bilirkişi", "İcra"], ["adalet", "hsk"]],
+  ["isveren", "🏪", "İşveren / esnaf", ["Asgari ücret", "Vergi", "KDV", "Prim", "Teşvik", "Esnaf", "Harç"], ["hazine", "ticaret", "sgk"]],
+  ["muhendis", "🏗️", "Mühendis / teknik", ["Mühendis", "İmar", "Yapı denetimi", "İhale", "Enerji", "Elektrik"], ["cevre", "enerji", "kik"]],
+  ["emekli", "🧓", "Emekli", ["Emekli aylığı", "Bayram ikramiyesi", "Emeklilik", "Engelli", "Sosyal yardım"], ["sgk", "aile"]],
+];
+const FOLLOW_SHORT = { sgk: "SGK", hazine: "Hazine ve Maliye", meb: "Millî Eğitim", calisma: "Çalışma Bakanlığı", saglik: "Sağlık Bakanlığı",
+  tarim: "Tarım ve Orman", icisleri: "İçişleri", ticaret: "Ticaret", yok: "YÖK", adalet: "Adalet", cevre: "Çevre ve Şehircilik", aile: "Aile Bakanlığı",
+  titck: "TİTCK", hsk: "HSK", uni: "Üniversiteler", enerji: "Enerji", kik: "Kamu İhale", cb: "Cumhurbaşkanlığı", msb: "Millî Savunma" };
+const agencyLabel = (id, name) => FOLLOW_SHORT[id] || String(name || id).replace(/\s*\(.*$/, "");
+
+/** Kelimeleri ayırır (virgül, noktalı virgül, satır sonu); en az 2 harf, Türkçe harf farkı gözetmeden tekrarsız, en çok RADAR_MAX */
+function parseWords(list) {
+  const seen = new Set(), out = [];
+  for (const raw of list) {
+    for (const part of String(raw).split(/[,;\n|]/)) {
+      const w = part.trim().replace(/\s+/g, " ").slice(0, 40);
+      if (w.length < 2 || seen.has(fold(w))) continue;
+      seen.add(fold(w)); out.push(w);
+    }
+  }
+  return out.slice(0, RADAR_MAX);
+}
+const savedSearches = () => pref("aramalar", "").split("|").map(x => x.trim()).filter(Boolean);
+function setSearches(list) {
+  const seen = new Set(), out = [];
+  for (const raw of list) {
+    const q = String(raw).trim().replace(/\s+/g, " ").slice(0, 60);
+    if (q.length < 2 || seen.has(fold(q))) continue;
+    seen.add(fold(q)); out.push(q);
+  }
+  setPref("aramalar", out.slice(0, SEARCH_MAX).join("|"));
+}
+const followed = () => { try { return (JSON.parse(pref("kurumlar", "[]")) || []).filter(x => Array.isArray(x) && mevOk(x[0])); } catch (e) { return []; } };
+const setFollowed = list => { const seen = new Set(); setPref("kurumlar", JSON.stringify(list.filter(x => !seen.has(x[0]) && seen.add(x[0])).slice(0, AGENCY_MAX))); };
+/** Kart rozetinde ve Geçmiş'te aranan her şey: takip kelimeleri ve kayıtlı aramalar */
+function trackedTerms() {
+  const w = watchWords(), seen = new Set(w.map(fold));
+  return w.concat(savedSearches().filter(q => !seen.has(fold(q)) && seen.add(fold(q))));
+}
+const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/** Uygulamadaki kuralla: kelime bir sözcüğün başında geçmeli ("tarım" "tarımsal"ı bulur, "kendisi"nin içindeki "dis"i bulmaz) */
+function radarHits(text, words) {
+  const t = fold(text);
+  return words.filter(w => {
+    const n = fold(String(w).trim());
+    if (!n) return false;
+    try { return new RegExp("(?<![\\p{L}\\p{N}])" + reEsc(n), "u").test(t); } catch (e) { return t.includes(n); }
+  });
+}
+function toggleFollow(id) {
+  const cur = followed();
+  if (cur.some(x => x[0] === id)) { setFollowed(cur.filter(x => x[0] !== id)); toast("Kurum takibi bırakıldı"); return false; }
+  if (cur.length >= AGENCY_MAX) { toast(`En çok ${AGENCY_MAX} kurum takip edilebilir`); return false; }
+  const r = MEV.shelves && MEV.shelves.raflar.find(x => x.id === id);
+  setFollowed([...cur, [id, r ? r.ad : (FOLLOW_SHORT[id] || id)]]);
+  toast("Kurum takipte: " + agencyLabel(id, r && r.ad));
+  return true;
+}
+async function shareText(title, text) {
+  if (navigator.share) { try { await navigator.share({ title, text }); } catch (x) { /* vazgeçildi */ } return; }
+  try { await navigator.clipboard.writeText(text); toast("Panoya kopyalandı"); } catch (x) { prompt("Metin:", text); }
+}
+function mevShareText(e, shelfName) {
+  const type = mevType(e.k)[1], org = e.a || shelfName || "";
+  return `📜 ${e.b}\n🏛️ ${org ? `${org} · ${type}` : type}\n📰 ${longOf(e.t)} tarihli${e.n ? ` ve ${e.n} sayılı` : ""} Resmî Gazete\n` +
+    (e.y ? `⏳ Yürürlük: ${e.y}\n` : "") + (e.s ? `\n${e.s}\n` : "") + `\n🔗 ${mevHref(e)}`;
 }
 
-async function showMevzuat(id, tur, q) {
+// ------------------------------------------------------------------ Mevzuat (uygulamadakinin web uyarlaması; 2.8'de yeniden tasarlandı)
+
+const mvTop = (badge, cls, kicker, title) =>
+  `<div class="mv-top"><span class="mv-badge${cls ? ` ${cls}` : ""}">${badge}</span><div class="mv-tt"><div class="kicker">${esc(kicker)}</div><h1>${esc(title)}</h1></div></div>`;
+const mvStats = list => `<div class="stats">` + chunk(list.filter(Boolean), 2).map(p => `<div class="pair${p.length === 1 ? " one" : ""}">` +
+  p.map(([n, l, c, h]) => `<a class="stat ${c}" href="${h}"${h.startsWith("?") ? " data-nav" : ""}><b${String(n).length > 5 || String(n).includes(" ") ? ` class="sm"` : ""}>${esc(n)}</b><span>${esc(l)}</span></a>`).join("") + `</div>`).join("") + `</div>`;
+function chunk(a, n) { const out = []; for (let i = 0; i < a.length; i += n) out.push(a.slice(i, i + n)); return out; }
+const MV_NOTE = `<p class="note">Raflar, bu sitenin hazırladığı Resmî Gazete özetlerinden derlenir; resmî bir kayıt değildir. Bir düzenlemenin yürürlükteki güncel metni için kartlardaki <b>Güncel hâli</b>ne ya da <a href="https://www.mevzuat.gov.tr/" target="_blank" rel="noopener">mevzuat.gov.tr</a>'ye bakın; esas olan Resmî Gazete'deki metindir.</p>`;
+
+function mvTile(r, fol, today) {
+  const fresh = r.son && daysBetween(r.son, today) <= 14;
+  return `<a class="mv-tile${fol ? " fol" : ""}" href="?mevzuat=${r.id}" data-nav><span class="e">${mevEmoji(r.id, r.grup)}</span><span class="l">${esc(r.ad)}<small>${sayi(r.say)} düzenleme${r.son ? ` · son ${shortDay(r.son)}` : ""}</small></span>` +
+    (fol ? `<span class="mv-bell">${ic("bell")}</span>` : fresh ? `<i class="mv-dot"></i>` : "") + `</a>`;
+}
+function mvGroups(list, fol, today) {
+  let s = "", group = "";
+  for (const r of list) {
+    if (r.grup !== group) { if (group) s += `</div>`; group = r.grup; s += `<h2 class="free mv-grp">${esc(r.grup)}</h2><div class="mv-grid">`; }
+    s += mvTile(r, fol.includes(r.id), today);
+  }
+  return s + (group ? `</div>` : "");
+}
+
+async function showMevzuat(id, tur, q, yil) {
   loading("Mevzuat yükleniyor…");
-  try { if (!MEV.shelves) MEV.shelves = JSON.parse(await getText("mevzuat/raflar.json", true)); } catch (e) { return showError(e, () => showMevzuat(id, tur, q)); }
+  try { if (!MEV.shelves) MEV.shelves = JSON.parse(await getText("mevzuat/raflar.json", true)); } catch (e) { return showError(e, () => showMevzuat(id, tur, q, yil)); }
   try { await loadIndex(); } catch (e) { /* gün sayısı notu olmadan da çalışır */ }
   if (!mevOk(id)) id = "";
   const shelf = id && id !== "yeni" ? MEV.shelves.raflar.find(r => r.id === id) : null;
   if (id && id !== "yeni" && !shelf) id = "";
-  if (!id) return mevGrid(q);
+  if (!id) {
+    let feed = null;
+    try { feed = await mevEntries("yeni"); } catch (e) { /* önizleme olmadan da çalışır */ }
+    return mevGrid(q, feed);
+  }
   let entries;
-  try { entries = await mevEntries(id); } catch (e) { return showError(e, () => showMevzuat(id, tur, q)); }
-  mevList(id, shelf, entries, MEV_TYPES.some(t => t[0] === tur) ? tur : "", q);
+  try { entries = await mevEntries(id); } catch (e) { return showError(e, () => showMevzuat(id, tur, q, yil)); }
+  mevList(id, shelf, entries, MEV_TYPES.some(t => t[0] === tur) ? tur : "", q, /^\d{4}$/.test(yil || "") ? +yil : 0);
 }
 
-/** Raf listesi: "Son düzenlemeler" kutusu ve gruplara bölünmüş kurum rafları; kurum adında arama */
-function mevGrid(q) {
-  const sh = MEV.shelves;
-  const day = k => `${dayOf(k)} ${monOf(k).slice(0, 3)} ${k.slice(0, 4)}`;
+/** Raf listesi: kapak (arama, sayaçlar, arşiv), son düzenlemeler, takip edilen kurumlar, en çok düzenleme yapanlar, bütün raflar */
+function mevGrid(q, feed) {
+  const sh = MEV.shelves, today = todayKey(), fol = followed().map(x => x[0]);
+  const total = sh.raflar.reduce((n, r) => n + (r.say || 0), 0);
+  const days = INDEX ? INDEX.tarihler.length : 0, all = Math.round((ARSIV_SON - ARSIV_BAS) / 864e5) + 1;
   $app.innerHTML = `<a class="back" href="./" data-nav>${ic("arrow")}Özete dön</a>` +
-    `<section class="card hero mv-hero"><div class="kicker">MEVZUAT</div><h1>Kurumlara göre düzenlemeler</h1><div class="sub"><span>Resmî Gazete'de yayımlananlar</span><span>${sh.raflar.length} raf</span></div></section>` +
-    mevCoverage() +
-    `<form class="srch mv-srch" role="search">${ic("search")}<input type="search" id="mv-q" name="ara" placeholder="Kurum ara… (ör. tarım, üniversite, sağlık)" value="${esc(q)}" autocomplete="off" enterkeyhint="search"><button type="submit">Ara</button></form>` +
-    `<div id="mv-body"></div>` +
-    `<p class="note">Raflar, bu sitenin hazırladığı Resmî Gazete özetlerinden derlenir; resmî bir kayıt değildir. Bir düzenlemenin yürürlükteki güncel metni için <a href="https://www.mevzuat.gov.tr/" target="_blank" rel="noopener">mevzuat.gov.tr</a>'ye bakın; esas olan Resmî Gazete'deki metindir.</p>`;
+    `<section class="card hero mv-hero2">` + mvTop(ic("book"), "", "MEVZUAT KÜTÜPHANESİ", "Kurumlara göre düzenlemeler") +
+    `<p class="mv-lead">Resmî Gazete'de yayımlanan kanun, yönetmelik, tebliğ ve kararlar kurum kurum raflarda.</p>` +
+    `<form class="mv-sbox mv-in" role="search">${ic("search")}<input type="search" id="mv-q" name="ara" placeholder="Kurum ara: tarım, üniversite, SGK…" value="${esc(q)}" autocomplete="off" enterkeyhint="search"></form>` +
+    mvStats([[sayi(sh.raflar.length), "kurum rafı", "s1", "#mv-raflar"], [sayi(total), "düzenleme", "s3", "#mv-raflar"],
+      feed ? [sayi(feed.filter(e => daysBetween(e.t, today) < 7).length), "son 7 günde", "s2", "?mevzuat=yeni"] : null,
+      [sayi(fol.length), "takipte", "s4", "#mv-takip"]]) +
+    (days ? `<div class="mv-cov2"><div class="r"><span>🗄️ Arşiv · 2020'den bu yana</span><b>${sayi(days)} / ${sayi(all)} gün</b></div>` +
+      `<i class="bar"><i style="width:${Math.min(100, Math.max(1, days / all * 100)).toFixed(1)}%"></i></i><small>Raflar arşivle birlikte büyür; özetler tamamlandıkça eski düzenlemeler de eklenir.</small></div>` : "") +
+    `</section><div id="mv-body"></div>` + MV_NOTE;
   const body = document.getElementById("mv-body");
   const draw = text => {
     const words = fold(text).split(/\s+/).filter(Boolean);
-    const list = words.length ? sh.raflar.filter(r => words.every(w => fold(r.ad + " " + r.grup).includes(w))) : sh.raflar;
-    let s = !words.length ? `<a class="mv-feed" href="?mevzuat=yeni" data-nav><span class="e">🆕</span><span class="l">Son düzenlemeler<small>Bütün kurumlardan en yeni ${sh.yeni.say} düzenleme</small></span><span class="go">›</span></a>` : "";
-    if (words.length && !list.length) s += `<section class="card cal-empty"><div class="big">🔎</div><h2>Kurum bulunamadı</h2><p>Aramanıza uyan bir kurum rafı yok. Raflar, özetlerde adı geçen kurumlardan oluşur.</p></section>`;
-    let group = "";
-    for (const r of list) {
-      if (r.grup !== group) { if (group) s += `</div>`; group = r.grup; s += `<h2 class="free mv-grp">${esc(r.grup)}</h2><div class="mv-grid">`; }
-      s += `<a class="mv-tile" href="?mevzuat=${r.id}" data-nav><span class="e">${mevEmoji(r.id, r.grup)}</span><span class="l">${esc(r.ad)}<small>${r.say} düzenleme · son ${day(r.son)}</small></span></a>`;
+    if (words.length) {
+      const found = sh.raflar.filter(r => words.every(w => fold(r.ad + " " + r.grup).includes(w)));
+      body.innerHTML = `<a class="card mv-arch" href="?ara=${encodeURIComponent(text.trim())}" data-nav>${ic("search")}<span><b>“${esc(text.trim())}” geçen düzenlemeleri bütün arşivde ara</b><small>Kurum adında değil, özetlerin metninde arar</small></span><span class="go">›</span></a>` +
+        (found.length ? mvGroups(found, fol, today) : `<section class="card cal-empty"><div class="big">🔎</div><h2>Kurum bulunamadı</h2><p>Aramanıza uyan bir kurum rafı yok. Raflar, özetlerde adı geçen kurumlardan oluşur.</p></section>`);
+      return;
     }
-    body.innerHTML = s + (group ? `</div>` : "");
+    let s = `<h3 class="mv-h">SON DÜZENLEMELER<a href="?mevzuat=yeni" data-nav>Tümü · ${sh.yeni.say} ›</a></h3><section class="card mv-latest">`;
+    if (!feed) s += `<p class="hint">Son düzenlemeler yüklenemedi.</p>`;
+    else {
+      for (const e of feed.slice(0, 4)) {
+        const [, ad, cls] = mevType(e.k), org = e.a || (sh.raflar.find(r => r.id === e.r) || {}).ad || "";
+        s += `<a class="mv-lrow k-${cls}" href="?gun=${isoOf(e.t)}&madde=${encodeURIComponent(e.b)}" data-nav><span class="d"><b>${dayOf(e.t)}</b>${up(monOf(e.t).slice(0, 3))}</span>` +
+          `<span class="t"><b>${esc(e.b)}</b><small>${ad}${org ? ` · ${esc(org)}` : ""}</small></span></a>`;
+      }
+      const counts = {};
+      for (const e of feed) counts[e.k] = (counts[e.k] || 0) + 1;
+      s += `<div class="mv-types sm">` + MEV_TYPES.filter(([k]) => counts[k]).map(([k, ad, cls]) => `<a class="mv-chip k-${cls}" href="?mevzuat=yeni&tur=${k}" data-nav>${ad} <b>${counts[k]}</b></a>`).join("") + `</div>`;
+    }
+    s += `</section>`;
+    const folShelves = sh.raflar.filter(r => fol.includes(r.id));
+    s += `<h3 class="mv-h" id="mv-takip">TAKİP ETTİĞİN KURUMLAR${folShelves.length ? `<a href="?radar" data-nav>Radar ›</a>` : ""}</h3>`;
+    s += folShelves.length ? `<div class="mv-grid">${folShelves.map(r => mvTile(r, true, today)).join("")}</div>`
+      : `<a class="card mv-cta" href="?radar" data-nav><span class="e">${ic("bell")}</span><span class="l"><b>Bir kurumu takip et</b><small>Rafını açıp <b>Takip et</b>e dokun; o kurum Resmî Gazete'de bir şey yayımlayınca Bildirim Radarı'nda ve gün sayfasında işaretlenir.</small></span><span class="go">›</span></a>`;
+    if (feed && feed.length) {
+      const span = daysBetween(feed.reduce((m, e) => e.t < m ? e.t : m, feed[0].t), today) + 1;
+      const counts = {};
+      for (const e of feed) if (e.r && e.r !== "diger") counts[e.r] = (counts[e.r] || 0) + 1;
+      const top = Object.entries(counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 5);
+      if (top.length) {
+        const most = top[0][1];
+        s += `<h3 class="mv-h">SON ${span} GÜNDE EN ÇOK DÜZENLEME</h3><section class="card mv-top5">` + top.map(([rid, n]) => {
+          const r = sh.raflar.find(x => x.id === rid);
+          return r ? `<a href="?mevzuat=${rid}" data-nav><span class="e">${mevEmoji(rid, r.grup)}</span><span class="n">${esc(r.ad)}<i class="bar"><i style="width:${Math.max(6, Math.round(n * 100 / most))}%"></i></i></span><b>${n}</b></a>` : "";
+        }).join("") + `</section>`;
+      }
+    }
+    s += `<h3 class="mv-h" id="mv-raflar">BÜTÜN RAFLAR<span>${sh.raflar.length}</span></h3>` + mvGroups(sh.raflar, fol, today);
+    body.innerHTML = s;
   };
-  const input = document.getElementById("mv-q"), form = $app.querySelector(".mv-srch");
+  const input = document.getElementById("mv-q"), form = $app.querySelector(".mv-in");
   let timer = 0;
   const apply = () => { history.replaceState(null, "", mevUrl("", "", input.value.trim())); lastSearch = location.search; draw(input.value); };
   form.addEventListener("submit", e => { e.preventDefault(); clearTimeout(timer); apply(); input.blur(); });
@@ -1492,65 +1632,299 @@ function mevGrid(q) {
   setMeta("Mevzuat: kurumlara göre düzenlemeler | Resmî Gazete Özeti", "Resmî Gazete'de yayımlanan düzenlemeler kurumlara göre: bakanlıklar, kurullar, üniversiteler, yargı. Yönetmelik, tebliğ, karar ve kanun özetleri.", "?mevzuat");
 }
 
-/** Bir rafın (ya da "Son düzenlemeler"in) listesi: arama, tür çipleri, kartlar */
-function mevList(id, shelf, entries, tur, q) {
+/** Bir rafın (ya da "Son düzenlemeler"in) sayfası: kapak (takip, sayaçlar, tür dağılımı), arama, tür ve yıl çipleri, kartlar */
+function mevList(id, shelf, entries, tur, q, yil) {
   const feed = id === "yeni";
   const title = feed ? "Son düzenlemeler" : shelf.ad;
-  const st = { tur, q, limit: MEV_PAGE };
-  const day = k => `${dayOf(k)} ${monOf(k).slice(0, 3)} ${k.slice(0, 4)}`;
+  const st = { tur, q, yil, limit: MEV_PAGE };
   const today = todayKey();
-  const sub = feed ? ["Bütün kurumlardan"] : [`${shelf.say} düzenleme`];
-  const newest = feed ? (entries[0] || {}).t : shelf.son;
-  if (newest) sub.push(`son: ${day(newest)}`);
-  $app.innerHTML = `<a class="back" href="?mevzuat" data-nav>${ic("arrow")}Raflar</a>` +
-    `<section class="card hero mv-hero"><div class="kicker">${esc(feed ? "TÜM KURUMLAR" : up(shelf.grup))}</div><h1>${esc(title)}</h1><div class="sub">${sub.map(x => `<span>${esc(x)}</span>`).join("")}</div></section>` +
-    `<form class="srch mv-srch" role="search">${ic("search")}<input type="search" id="mv-q" name="ara" placeholder="${feed ? "Son düzenlemelerde ara…" : "Bu rafta ara…"}" value="${esc(q)}" autocomplete="off" enterkeyhint="search"><button type="submit">Ara</button></form>` +
-    `<div class="mv-types" id="mv-types"></div><div id="mv-list"></div>` +
-    `<p class="note">Raflar, bu sitenin hazırladığı Resmî Gazete özetlerinden derlenir; resmî bir kayıt değildir. Yürürlükteki güncel metin için <a href="https://www.mevzuat.gov.tr/" target="_blank" rel="noopener">mevzuat.gov.tr</a>'ye bakın; esas olan Resmî Gazete'deki metindir.</p>`;
-  const matches = (type) => {
-    const words = fold(st.q).split(/\s+/).filter(Boolean);
-    return entries.filter(e => (!type || e.k === type) && (!words.length || words.every(w => fold(`${e.b} ${e.s || ""} ${e.a || ""}`).includes(w))));
+  const byType = {};
+  for (const e of entries) byType[e.k] = (byType[e.k] || 0) + 1;
+  const stats = [[sayi(entries.length), "düzenleme", "s1", "#mv-list"]];
+  if (feed) {
+    stats.push([sayi(entries.filter(e => daysBetween(e.t, today) < 7).length), "son 7 günde", "s2", "#mv-list"]);
+    stats.push([sayi(new Set(entries.map(e => e.r)).size), "kurum", "s3", "#mv-list"]);
+  } else {
+    stats.push([sayi(entries.filter(e => daysBetween(e.t, today) < 30).length), "son 30 günde", "s2", "#mv-list"]);
+    if (shelf.son) stats.push([`${dayOf(shelf.son)} ${monOf(shelf.son).slice(0, 3)}`, "son yayım", "s3", "#mv-list"]);
+  }
+  stats.push([sayi(entries.filter(e => e.p).length), "personel", "s4", "#mv-list"]);
+  const head = () => {
+    const on = !feed && followed().some(x => x[0] === id);
+    return mvTop(feed ? "🆕" : mevEmoji(id, shelf.grup), "e", feed ? "TÜM KURUMLAR" : up(shelf.grup), title) +
+      (feed ? "" : `<div class="mv-acts"><a class="mv-follow${on ? " on" : ""}" href="#" data-follow>${ic("bell")}${on ? "Takip ediliyor ✓" : "Takip et"}</a><a class="mv-act" href="?radar" data-nav>${ic("radar")}Bildirim Radarı</a></div>`) +
+      `<form class="mv-sbox mv-in" role="search">${ic("search")}<input type="search" id="mv-q" name="ara" placeholder="${feed ? "Son düzenlemelerde ara…" : "Bu rafta ara…"}" value="${esc(st.q)}" autocomplete="off" enterkeyhint="search"></form>` +
+      mvStats(stats) +
+      (entries.length ? `<div class="mv-dist" aria-hidden="true">${MEV_TYPES.filter(([k]) => byType[k]).map(([k, , cls]) => `<i class="k-${cls}" style="flex:${byType[k]}"></i>`).join("")}</div>` : "");
   };
+  $app.innerHTML = `<a class="back" href="?mevzuat" data-nav>${ic("arrow")}Raflar</a>` +
+    `<section class="card hero mv-hero2 shelf" id="mv-head">${head()}</section>` +
+    `<div class="mv-types" id="mv-types"></div><div class="mv-years" id="mv-years"></div><div id="mv-list"></div>` + MV_NOTE;
+  const matches = (type, year) => {
+    const words = fold(st.q).split(/\s+/).filter(Boolean);
+    return entries.map((e, i) => [i, e]).filter(([, e]) => (!type || e.k === type) && (!year || +e.t.slice(0, 4) === year) &&
+      (!words.length || words.every(w => fold(`${e.b} ${e.s || ""} ${e.a || ""}`).includes(w))));
+  };
+  const years = [...new Set(entries.map(e => +e.t.slice(0, 4)))].sort((a, b) => b - a);
   const draw = () => {
-    const queried = matches("");
-    const counts = {};
-    for (const e of queried) counts[e.k] = (counts[e.k] || 0) + 1;
+    const forTypes = matches("", st.yil), counts = {};
+    for (const [, e] of forTypes) counts[e.k] = (counts[e.k] || 0) + 1;
     document.getElementById("mv-types").innerHTML =
-      `<a class="mv-chip${st.tur ? "" : " on"}" href="#" data-t="">Tümü <b>${queried.length}</b></a>` +
+      `<a class="mv-chip${st.tur ? "" : " on"}" href="#" data-t="">Tümü <b>${forTypes.length}</b></a>` +
       MEV_TYPES.filter(([k]) => counts[k] || k === st.tur).map(([k, ad, cls]) => `<a class="mv-chip k-${cls}${st.tur === k ? " on" : ""}" href="#" data-t="${k}">${ad} <b>${counts[k] || 0}</b></a>`).join("");
-    const list = matches(st.tur);
+    const yb = document.getElementById("mv-years");
+    if (!feed && years.length > 1) {
+      const fy = {};
+      for (const [, e] of matches(st.tur, 0)) fy[+e.t.slice(0, 4)] = (fy[+e.t.slice(0, 4)] || 0) + 1;
+      yb.innerHTML = `<a class="${st.yil ? "" : "on"}" href="#" data-y="">Bütün yıllar</a>` +
+        years.filter(y => fy[y] || y === st.yil).map(y => `<a class="${st.yil === y ? "on" : ""}" href="#" data-y="${y}">${y} <b>${fy[y] || 0}</b></a>`).join("");
+    } else yb.innerHTML = "";
+    const list = matches(st.tur, st.yil);
     const box = document.getElementById("mv-list");
-    if (!list.length) { box.innerHTML = `<section class="card cal-empty"><div class="big">🔎</div><h2>Sonuç yok</h2><p>${entries.length ? "Aramanıza ya da seçtiğiniz türe uyan düzenleme bulunamadı." : "Bu rafta henüz düzenleme yok."}</p></section>`; return; }
+    if (!list.length) {
+      box.innerHTML = `<section class="card cal-empty"><div class="big">🔎</div><h2>Sonuç yok</h2><p>${entries.length ? "Aramanıza, seçtiğiniz türe ya da yıla uyan düzenleme bulunamadı." : "Bu rafta henüz düzenleme yok."}</p></section>` +
+        (st.q ? `<a class="card mv-arch" href="?ara=${encodeURIComponent(st.q)}" data-nav>${ic("search")}<span><b>“${esc(st.q)}” için bütün arşivde ara</b><small>Bütün günlerin özetlerinde arar</small></span><span class="go">›</span></a>` : "");
+      return;
+    }
+    const sv = saved();
     let s = `<p class="mv-count">${list.length} düzenleme</p>`;
-    for (const e of list.slice(0, st.limit)) {
-      const [, ad, cls] = MEV_TYPES.find(t => t[0] === e.k) || MEV_TYPES[MEV_TYPES.length - 1];
-      const fresh = daysBetween(e.t, today) <= 14;
+    for (const [i, e] of list.slice(0, st.limit)) {
+      const [, ad, cls] = mevType(e.k);
+      const href = mevHref(e), on = !!sv[itemKey(e.t, href, e.b)];
       s += `<article class="card mv-item k-${cls}"><a class="mv-open" href="?gun=${isoOf(e.t)}&madde=${encodeURIComponent(e.b)}" data-nav><div class="mv-chips"><span class="mv-type">${ad}</span>` +
-        (fresh ? `<span class="mv-new">Yeni</span>` : "") + (e.p ? `<span class="tagp">${ic("person")}Personel</span>` : "") + `</div><h4>${esc(e.b)}</h4>` +
+        (daysBetween(e.t, today) <= 14 ? `<span class="mv-new">Yeni</span>` : "") + (e.p ? `<span class="tagp">${ic("person")}Personel</span>` : "") + `</div><h4>${esc(e.b)}</h4>` +
         (e.s ? `<p class="mv-sum">${esc(e.s)}</p>` : "") +
-        `<div class="mv-meta"><span>📰 RG ${day(e.t)}${e.n ? ` · Sayı ${esc(e.n)}` : ""}${e.m ? ` (${esc(e.m)}. mükerrer)` : ""}</span>${e.y ? `<span>⏳ Yürürlük: ${esc(e.y)}</span>` : ""}</div></a>` +
-        `<div class="mv-foot">` + (e.a ? (feed && mevOk(e.r) ? `<a class="mv-org" href="?mevzuat=${e.r}" data-nav>${ic("bank")}${esc(e.a)} ›</a>` : `<span class="mv-org">${ic("bank")}${esc(e.a)}</span>`) : "") +
-        `<a class="mv-src" href="${esc(mevHref(e))}" target="_blank" rel="noopener">Resmî Gazete'de aç ${ic("arrow")}</a></div></article>`;
+        `<div class="mv-meta"><span>📰 RG ${shortDay(e.t)}${e.n ? ` · Sayı ${esc(e.n)}` : ""}${e.m ? ` (${esc(e.m)}. mükerrer)` : ""}</span>${e.y ? `<span>⏳ Yürürlük: ${esc(e.y)}</span>` : ""}</div></a>` +
+        (e.a ? `<div class="mv-foot">` + (feed && mevOk(e.r) ? `<a class="mv-org" href="?mevzuat=${e.r}" data-nav>${ic("bank")}${esc(e.a)} ›</a>` : `<span class="mv-org">${ic("bank")}${esc(e.a)}</span>`) + `</div>` : "") +
+        `<div class="mv-acts2"><a href="?gun=${isoOf(e.t)}&madde=${encodeURIComponent(e.b)}" data-nav>${ic("list")}Özette aç</a>` +
+        `<a href="${esc(href)}" target="_blank" rel="noopener">${ic("doc")}Resmî Gazete</a>` +
+        (MEV_CURRENT.includes(e.k) ? `<a href="https://www.mevzuat.gov.tr/aramasonuc?AranacakMetin=${encodeURIComponent(currentQuery(e.b))}" target="_blank" rel="noopener">${ic("history")}Güncel hâli</a>` : "") +
+        `<a class="st${on ? " on" : ""}" href="#" data-msave="${i}">${ic(on ? "star" : "star-o")}${on ? "Kaydedildi" : "Kaydet"}</a>` +
+        `<a href="#" data-mshare="${i}">${ic("share")}Paylaş</a></div></article>`;
     }
     if (list.length > st.limit) s += `<button type="button" class="mv-more" data-more>Daha fazla göster · ${list.length - st.limit} kaldı</button>`;
     box.innerHTML = s;
   };
-  const input = document.getElementById("mv-q"), form = $app.querySelector(".mv-srch");
-  const sync = () => { history.replaceState(null, "", mevUrl(id, st.tur, st.q)); lastSearch = location.search; };
-  let timer = 0;
-  form.addEventListener("submit", e => { e.preventDefault(); clearTimeout(timer); st.q = input.value.trim(); st.limit = MEV_PAGE; sync(); draw(); input.blur(); });
-  input.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(() => { st.q = input.value.trim(); st.limit = MEV_PAGE; sync(); draw(); }, 220); });
+  const sync = () => { history.replaceState(null, "", mevUrl(id, st.tur, st.q, st.yil)); lastSearch = location.search; };
+  const wireSearch = () => {
+    const input = document.getElementById("mv-q"), form = $app.querySelector(".mv-in");
+    let timer = 0;
+    form.addEventListener("submit", e => { e.preventDefault(); clearTimeout(timer); st.q = input.value.trim(); st.limit = MEV_PAGE; sync(); draw(); input.blur(); });
+    input.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(() => { st.q = input.value.trim(); st.limit = MEV_PAGE; sync(); draw(); }, 220); });
+  };
+  wireSearch();
   // Tek işleyici: başka bir rafa geçilince eskisi kaldırılır (yoksa iki işleyici birden çalışırdı)
   if (mevClick) $app.removeEventListener("click", mevClick);
   mevClick = e => {
     if (!document.getElementById("mv-list")) return;
     const chip = e.target.closest("[data-t]");
     if (chip) { e.preventDefault(); st.tur = chip.dataset.t; st.limit = MEV_PAGE; sync(); draw(); return; }
-    if (e.target.closest("[data-more]")) { st.limit += MEV_PAGE; draw(); }
+    const yr = e.target.closest("[data-y]");
+    if (yr) { e.preventDefault(); st.yil = yr.dataset.y ? +yr.dataset.y : 0; st.limit = MEV_PAGE; sync(); draw(); return; }
+    if (e.target.closest("[data-more]")) { st.limit += MEV_PAGE; draw(); return; }
+    if (e.target.closest("[data-follow]")) {
+      e.preventDefault(); toggleFollow(id);
+      document.getElementById("mv-head").innerHTML = head(); wireSearch();
+      return;
+    }
+    const sv = e.target.closest("[data-msave]");
+    if (sv) {
+      e.preventDefault();
+      const en = entries[+sv.dataset.msave];
+      if (!en) return;
+      const href = mevHref(en), key = itemKey(en.t, href, en.b), all = saved();
+      if (all[key]) {
+        if (all[key].note && !confirm("Bu maddeye yazdığınız not da silinecek. Kayıttan çıkarılsın mı?")) return;
+        delete all[key]; toast("Kayıttan çıkarıldı");
+      } else { all[key] = { day: en.t, title: en.b, href, note: "", ts: Date.now() }; toast("Kaydedildi: menüdeki Kaydedilenler'de"); }
+      setSaved(all);
+      const y = window.scrollY; draw(); window.scrollTo(0, y);
+      return;
+    }
+    const sh = e.target.closest("[data-mshare]");
+    if (sh) {
+      e.preventDefault();
+      const en = entries[+sh.dataset.mshare];
+      if (en) shareText(en.b, mevShareText(en, shelf ? shelf.ad : ""));
+    }
   };
   $app.addEventListener("click", mevClick);
   draw();
-  setMeta(`Mevzuat: ${title} | Resmî Gazete Özeti`, feed ? "Resmî Gazete'de yayımlanan en yeni düzenlemeler, bütün kurumlardan." : `${shelf.ad} tarafından Resmî Gazete'de yayımlanan düzenlemeler: yönetmelik, tebliğ, karar ve kanun özetleri.`, mevUrl(id, "", ""));
+  setMeta(`Mevzuat: ${title} | Resmî Gazete Özeti`, feed ? "Resmî Gazete'de yayımlanan en yeni düzenlemeler, bütün kurumlardan." : `${shelf.ad} tarafından Resmî Gazete'de yayımlanan düzenlemeler: yönetmelik, tebliğ, karar ve kanun özetleri.`, mevUrl(id, "", "", 0));
+}
+
+// ------------------------------------------------------------------ Bildirim Radarı sayfası (uygulamadakinin web uyarlaması)
+
+const RADAR = { key: "", hits: null, pick: false };
+let radarClick = null;
+const kindOfType = t => ({ kan: "kanun", khk: "kanun", kar: "karar", yar: "yargi", yon: "yon", teb: "teb", ata: "ata", ilan: "ilan" }[t] || "diger");
+
+/** Son RADAR_DAYS günde takip kelimeleri ve kayıtlı aramalar (özetlerde) ile takip edilen kurumların (raflarda) eşleşmeleri */
+async function radarScan(words, searches, agencies) {
+  await loadIndex();
+  const today = todayKey();
+  const days = INDEX.tarihler.filter(k => { const d = daysBetween(k, today); return d >= 0 && d < RADAR_DAYS; });
+  const out = new Map();
+  if (words.length || searches.length) {
+    const htmls = await Promise.all(days.map(k => loadDay(k).catch(() => null)));
+    days.forEach((k, i) => {
+      if (!htmls[i]) return;
+      for (const sec of parse(htmls[i]).sections) {
+        if (sec.kind !== "mad") continue;
+        for (const g of groupsOf(sec.nodes)) for (const it of g.items) {
+          const text = it.title + " " + it.nodes.map(n => n.textContent).join(" ");
+          const w = radarHits(text, words), s = radarHits(text, searches);
+          if (!w.length && !s.length) continue;
+          const p = itemParts(it);
+          out.set(k + "|" + fold(it.title), { day: k, title: it.title, kind: g.kind, pers: p.pers || p.aud.length > 0, words: w, searches: s, agencies: [] });
+        }
+      }
+    });
+  }
+  for (const [id] of agencies) {
+    let list;
+    try { list = await mevEntries(id); } catch (e) { continue; }
+    for (const e of list) {
+      const d = daysBetween(e.t, today);
+      if (d < 0 || d >= RADAR_DAYS) continue;
+      const key = e.t + "|" + fold(e.b), h = out.get(key);
+      if (h) { if (!h.agencies.includes(id)) h.agencies.push(id); }
+      else out.set(key, { day: e.t, title: e.b, kind: kindOfType(e.k), pers: !!e.p, words: [], searches: [], agencies: [id] });
+    }
+  }
+  return [...out.values()].sort((a, b) => b.day.localeCompare(a.day));
+}
+
+async function showRadar(keep) {
+  const words = watchWords(), searches = savedSearches(), agencies = followed(), job = pref("meslek", "");
+  const key = JSON.stringify([words, searches, agencies.map(x => x[0]), INDEX && INDEX.guncel]);
+  const y = keep ? window.scrollY : 0;
+  if (!MEV.shelves) { try { MEV.shelves = JSON.parse(await getText("mevzuat/raflar.json", true)); } catch (e) { /* kurum listesi olmadan da çalışır */ } }
+  const tracked = words.length + searches.length + agencies.length;
+  if (RADAR.key !== key) { RADAR.hits = tracked ? null : []; }
+  radarRender(words, searches, agencies, job);
+  if (keep) window.scrollTo(0, y);
+  if (RADAR.hits === null) {
+    RADAR.key = key;
+    let hits = [];
+    try { hits = await radarScan(words, searches, agencies); } catch (e) { hits = []; }
+    if (RADAR.key !== key || !new URLSearchParams(location.search).has("radar")) return;
+    RADAR.hits = hits;
+    const yy = window.scrollY;
+    radarRender(words, searches, agencies, job);
+    window.scrollTo(0, yy);
+  }
+}
+
+function radarRender(words, searches, agencies, job) {
+  const hits = RADAR.hits, days = RADAR_DAYS;
+  const cnt = f => hits ? hits.filter(f).length : 0;
+  const counts = Object.fromEntries(words.map(w => [w, cnt(h => h.words.includes(w))]));
+  const sCounts = Object.fromEntries(searches.map(q => [q, cnt(h => h.searches.includes(q))]));
+  const aCounts = Object.fromEntries(agencies.map(([id]) => [id, cnt(h => h.agencies.includes(id))]));
+  const topW = Object.entries(counts).filter(x => x[1]).sort((a, b) => b[1] - a[1])[0];
+  const topA = Object.entries(aCounts).filter(x => x[1]).sort((a, b) => b[1] - a[1])[0];
+  const top = topW && (!topA || topW[1] >= topA[1]) ? "#" + topW[0] : topA ? agencyLabel(topA[0], (agencies.find(x => x[0] === topA[0]) || [])[1]) : "—";
+  const prof = PROFESSIONS.find(p => p[0] === job);
+  const have = new Set(words.map(fold));
+  const sug = [...new Set([...(prof ? prof[3] : []), ...RADAR_SUG])].filter(w => !have.has(fold(w))).slice(0, prof ? 12 : 9);
+  const folIds = agencies.map(x => x[0]);
+  const tracked = words.length + searches.length + agencies.length;
+  let s = `<a class="back" href="./" data-nav>${ic("arrow")}Özete dön</a>` +
+    `<section class="card hero rd-hero"><div class="rd-top"><span class="rd-ic">#</span><div><div class="kicker">BİLDİRİM RADARI</div><h1>Kelimeni yaz, ben takip edeyim</h1></div></div>` +
+    `<p class="rd-lead">Yazdığın kelime, seçtiğin kurum ya da kaydettiğin arama Resmî Gazete'de geçince burada, Geçmiş listesinde ve gün sayfasında <b>🎯 Takibinizde</b> diye işaretlenir.</p>` +
+    mvStats([[sayi(tracked), "takipte", "s1", "#rd-words"], [hits ? sayi(hits.length) : "…", `${days} günde eşleşme`, "s2", "#rd-recent"], [top, "en çok geçen", "s3", "#rd-words"]]) + `</section>` +
+    `<div class="card rd-warn"><span class="e">🔔</span><span><b>Bildirim Android uygulamasında</b><small>Web sitesi bildirim gönderemez. Aynı takip listesi uygulamada, yeni sayı çıkınca bildirimle haber verir.</small></span></div>`;
+  // Ekleme formu, meslek ve öneriler
+  s += `<section class="card rd-add">` + (words.length >= RADAR_MAX ? `<p class="rd-full">En çok ${RADAR_MAX} kelime takip edilebilir. Yeni kelime için aşağıdan birini kaldırın.</p>` :
+    `<form class="rd-form" data-radd><label class="rd-in"><span>#</span><input name="k" type="text" maxlength="120" autocomplete="off" enterkeyhint="done" placeholder="kelime ya da meslek yaz"></label><button type="submit">＋ Ekle</button></form>`) +
+    `<p class="rd-hint">Virgülle birden çok kelime yazabilirsin. Kelimenin başı yeter: "tarım" "tarımsal"ı da bulur; büyük-küçük harf ve ı/i farkı önemsizdir. En çok ${RADAR_MAX} kelime.</p>` +
+    `<div class="rd-sl">Mesleğin ne? Dokun, sana uygun kelimeleri ve kurumları önereyim</div><div class="rd-jobs">` +
+    PROFESSIONS.map(p => `<a class="${p[0] === job ? "on" : ""}" href="#" data-job="${p[0] === job ? "" : p[0]}"><i>${p[1]}</i>${esc(p[2])}${p[0] === job ? " ✓" : ""}</a>`).join("") + `</div>`;
+  if (sug.length && words.length < RADAR_MAX) {
+    s += `<div class="rd-sl">${prof ? esc(prof[2]) + " için öneriler" : "Öneriler"} · dokun, eklensin</div><div class="rd-sugs">` +
+      sug.map(w => `<a href="#" data-wadd="${esc(w)}"><i>＋</i>${esc(w)}</a>`).join("");
+    const left = prof ? prof[3].filter(w => !have.has(fold(w))) : [];
+    if (left.length > 1) s += `<a class="all" href="#" data-wadd="${esc(left.join(", "))}"><i>✓</i>Hepsini ekle</a>`;
+    s += `</div>`;
+  }
+  s += `</section>`;
+  // Kurum takibi
+  s += `<section class="card rd-box" id="rd-kurum"><div class="rd-bh"><span class="rd-bi">${ic("bank")}</span><div><b>Kurum takibi</b><small>Seçtiğin kurum Resmî Gazete'de bir şey yayımlarsa işaretlerim.</small></div></div>`;
+  if (agencies.length) {
+    s += `<div class="rd-kf">` + agencies.map(([id, name]) => `<span class="rd-kc"><b>${esc(agencyLabel(id, name))}</b>${hits ? `<em>${aCounts[id]}</em>` : ""}<a href="#" data-kdel="${id}" aria-label="Takibi bırak">✕</a></span>`).join("") + `</div>` +
+      (hits ? `<p class="rd-sm">Sayılar: son ${days} günde yayımladıkları düzenleme.</p>` : "");
+  }
+  if (agencies.length < AGENCY_MAX) {
+    const quick = [...new Set([...(prof ? prof[4] : []), ...Object.keys(FOLLOW_SHORT).slice(0, 10)])].filter(id => !folIds.includes(id)).slice(0, 10);
+    if (quick.length) s += `<div class="rd-kq">` + quick.map(id => `<a href="#" data-kadd="${id}">${esc(FOLLOW_SHORT[id] || id)}</a>`).join("") + `</div>`;
+    s += `<a class="rd-more" href="#" data-kpick>${RADAR.pick ? "▲ Kurum listesini kapat" : "＋ Başka kurum seç"}</a>`;
+    if (RADAR.pick && MEV.shelves) {
+      s += `<div class="rd-kq rd-all">` + MEV.shelves.raflar.filter(r => r.id !== "diger").map(r =>
+        `<a href="#" data-${folIds.includes(r.id) ? "kdel" : "kadd"}="${r.id}" class="${folIds.includes(r.id) ? "on" : ""}">${mevEmoji(r.id, r.grup)} ${esc(r.ad)}${folIds.includes(r.id) ? " ✓" : ""}</a>`).join("") + `</div>`;
+    }
+  }
+  s += `</section>`;
+  // Kayıtlı aramalar
+  s += `<section class="card rd-box" id="rd-arama"><div class="rd-bh"><span class="rd-bi s">${ic("search")}</span><div><b>Kayıtlı aramalar</b><small>Geçmiş'te bir arama yap ve <b>Aramayı kaydet</b>e dokun; uyan yeni düzenleme çıkınca işaretlerim.</small></div></div>` +
+    searches.map(q => `<div class="rd-sr"><a class="rd-sq" href="?ara=${encodeURIComponent(q)}" data-nav>${ic("search")}<span><b>${esc(q)}</b><small>${!hits ? "taranıyor…" : sCounts[q] ? `son ${days} günde ${sCounts[q]} maddede` : `son ${days} günde eşleşme yok`}</small></span></a><a class="rd-x" href="#" data-sdel="${esc(q)}" aria-label="Aramayı sil">✕</a></div>`).join("") +
+    (searches.length < SEARCH_MAX ? `<a class="rd-more" href="?gecmis" data-nav>🔎 Arşivde ara</a>` : "") + `</section>`;
+  // Kelimeler
+  s += `<h3 class="rd-h" id="rd-words">TAKİP ETTİĞİN KELİMELER<span>${words.length}</span></h3>`;
+  if (!words.length) {
+    s += `<section class="card cal-empty"><div class="big">🎯</div><h2>Henüz kelime yok</h2><p>Mesleğini, kurumunu ya da merak ettiğin konuyu yaz: "Ziraat", "Görevde yükselme", "Öğretmen" gibi.</p></section>`;
+  } else {
+    const most = Math.max(1, ...Object.values(counts));
+    words.map((w, i) => [w, i]).sort((a, b) => (counts[b[0]] - counts[a[0]]) || a[1] - b[1]).forEach(([w, i]) => {
+      const n = counts[w];
+      s += `<div class="card rd-word c${i % 6}"><a class="rd-main" href="?ara=${encodeURIComponent(w)}" data-nav><span class="rd-n">${hits ? n : "…"}</span><span class="rd-t"><b>#${esc(w)}</b><small>` +
+        (!hits ? "özetler taranıyor…" : n ? `son ${days} günde ${n} maddede geçti` : `son ${days} günde geçmedi · arşivde aramak için dokun`) +
+        `</small><i class="rd-bar"><i style="width:${hits ? Math.min(100, Math.max(n ? 4 : 0, Math.round(n * 100 / most))) : 0}%"></i></i></span></a><a class="rd-x" href="#" data-wdel="${esc(w)}" aria-label="Kelimeyi kaldır">✕</a></div>`;
+    });
+  }
+  // Son eşleşmeler
+  if (tracked) {
+    s += `<h3 class="rd-h" id="rd-recent">SON EŞLEŞMELER${hits ? `<span>${hits.length}</span>` : ""}</h3>`;
+    if (!hits) s += `<section class="card cal-empty"><div class="spin" role="progressbar" aria-label="Taranıyor"></div><p>Son ${days} günün özetleri taranıyor…</p></section>`;
+    else if (!hits.length) s += `<section class="card cal-empty"><div class="big">📭</div><p>Son ${days} günde takip ettiklerinle eşleşen düzenleme çıkmadı.</p></section>`;
+    else {
+      const names = Object.fromEntries(agencies);
+      for (const h of hits.slice(0, 20)) {
+        s += `<a class="card rd-hit k-${h.kind}" href="?gun=${isoOf(h.day)}&madde=${encodeURIComponent(h.title)}" data-nav><span class="rd-d">${dayOf(h.day)} ${monOf(h.day).slice(0, 3)}</span><span class="rd-hb"><b>${esc(h.title)}</b><span class="rd-ws">` +
+          (h.pers ? `<em class="tagp">${ic("person")}Personel</em>` : "") + h.agencies.slice(0, 2).map(a => `<em class="ag">🏛 ${esc(agencyLabel(a, names[a]))}</em>`).join("") +
+          h.words.slice(0, 3).map(w => `<em>#${esc(w)}</em>`).join("") + h.searches.slice(0, 2).map(q => `<em class="sq">🔎 ${esc(q)}</em>`).join("") + `</span></span><span class="go">›</span></a>`;
+      }
+      if (hits.length > 20) s += `<p class="note">ve ${hits.length - 20} eşleşme daha. Bir kelimenin tümünü görmek için kelimeye dokun.</p>`;
+    }
+  }
+  s += `<p class="note">Kelimeler, kurumlar ve aramalar yalnızca bu tarayıcıda saklanır; menüdeki Kaydedilenler'den yedeğini indirebilirsin.</p>`;
+  $app.innerHTML = s;
+  setMeta("Bildirim Radarı | Resmî Gazete Özeti", "Takip ettiğiniz kelime, kurum ve aramaların Resmî Gazete özetlerinde geçtiği düzenlemeler.", "?radar");
+  if (radarClick) $app.removeEventListener("click", radarClick);
+  radarClick = e => {
+    if (!new URLSearchParams(location.search).has("radar")) return;
+    const t = e.target, a = (sel) => t.closest(sel);
+    let changed = true;
+    if (a("[data-wadd]")) { e.preventDefault(); const add = parseWords([a("[data-wadd]").dataset.wadd]); const cur = watchWords(); const next = parseWords([...cur, ...add]); if (next.length === cur.length) { toast(cur.length >= RADAR_MAX ? `En çok ${RADAR_MAX} kelime` : "Bu kelime zaten takipte"); return; } setWatch(next); }
+    else if (a("[data-wdel]")) { e.preventDefault(); const d = fold(a("[data-wdel]").dataset.wdel); setWatch(watchWords().filter(w => fold(w) !== d)); }
+    else if (a("[data-job]")) { e.preventDefault(); setPref("meslek", a("[data-job]").dataset.job); }
+    else if (a("[data-kadd]")) { e.preventDefault(); toggleFollow(a("[data-kadd]").dataset.kadd); }
+    else if (a("[data-kdel]")) { e.preventDefault(); toggleFollow(a("[data-kdel]").dataset.kdel); }
+    else if (a("[data-kpick]")) { e.preventDefault(); RADAR.pick = !RADAR.pick; }
+    else if (a("[data-sdel]")) { e.preventDefault(); const d = fold(a("[data-sdel]").dataset.sdel); setSearches(savedSearches().filter(q => fold(q) !== d)); }
+    else changed = false;
+    if (changed) showRadar(true);
+  };
+  $app.addEventListener("click", radarClick);
+  const form = $app.querySelector("[data-radd]");
+  if (form) form.addEventListener("submit", e => {
+    e.preventDefault();
+    const add = parseWords([form.k.value]);
+    if (!add.length) { toast("Kelime en az 2 harf olmalı"); return; }
+    const cur = watchWords(), next = parseWords([...cur, ...add]);
+    if (next.length === cur.length) { toast(cur.length >= RADAR_MAX ? `En çok ${RADAR_MAX} kelime` : "Bu kelime zaten takipte"); return; }
+    setWatch(next); toast(`Bildirim Radarı: ${next.length} kelime takipte`); showRadar(true);
+  });
 }
 
 // ------------------------------------------------------------------ AI'ya Sor ve Bilgi Notu (uygulamadakinin web uyarlaması)
@@ -1796,15 +2170,21 @@ function showAbout() {
     `<section class="why"><div class="why-k">NEDEN BU UYGULAMA?</div><blockquote>“Resmî Gazete’yi okumak işimin bir parçası. ` +
     `Bu uygulamayı, aynı ihtiyacı duyan herkes için o sabah okumasını birkaç dakikaya indirmek üzere yaptım.”</blockquote></section>` +
     `<h2 class="free"><span class="ic how-ic">${ic("bulb")}</span>Nasıl çalışır?</h2><ol class="how">` +
-    `<li>Resmî Gazete gece yarısından sonra yayımlanır; metinler <a href="https://www.resmigazete.gov.tr" target="_blank" rel="noopener">resmigazete.gov.tr</a> adresinden alınır.</li>` +
-    `<li>Her başlık kısa ve sade bir özete dönüştürülür, konusuna göre etiketlenir; atamalar ve eski–yeni karşılaştırmaları ayrıca gösterilir.</li>` +
-    `<li>Özet her gece bu siteye ve Android uygulamasına gelir; asıl metne tek dokunuşla geçersiniz.</li></ol>` +
+    `<li><b>Gece yarısı alınır.</b> Resmî Gazete her gece 00.00'da yayımlanır. Birkaç dakika sonra sayının tamamı (kanunlar, yönetmelikler, tebliğler, kararlar, atamalar, ilanlar ve varsa mükerrer sayı) <a href="https://www.resmigazete.gov.tr" target="_blank" rel="noopener">resmigazete.gov.tr</a> adresinden alınır.</li>` +
+    `<li><b>Sade Türkçeye çevrilir.</b> Yapay zekâ her başlığı okur, kısa ve anlaşılır bir özet yazar; türünü, ilgili kurumu, kimleri ilgilendirdiğini ve yürürlük tarihini ayırır. Öne çıkan düzenlemeler ayrıca işaretlenir.</li>` +
+    `<li><b>Eski ve yeni yan yana.</b> Bir yönetmeliği ya da kanunu değiştiren düzenlemelerde eski hüküm ile yeni hüküm yan yana gösterilir, değişen kısımlar vurgulanır.</li>` +
+    `<li><b>Atamalar tablo olur.</b> Atama kararlarında kurum, görev, eski ve yeni görevli tek tabloda listelenir; üst düzey görevlerde önceki görevli de araştırılıp yazılır.</li>` +
+    `<li><b>Gece yayımlanır.</b> Özet 00.15 civarında bu sitede ve Android uygulamasında yayımlanır; uygulama bildirim gönderir. Bildirim Radarı'ndaki kelimelerin, kurumların ya da kayıtlı aramaların geçtiği maddeler \"🎯 Takibinizde\" diye işaretlenir.</li>` +
+    `<li><b>İstediğin gibi oku.</b> Süzgeçlerle yalnızca ilgilendiğin türleri gör, maddeleri kaydet, not ekle, AI'ya sor ya da bilgi notu çıkar. Mevzuat'ta kurumlara göre, Geçmiş'te bütün arşivde ara; yürürlük takvimi ve haftalık/aylık bülten özetlerden kendiliğinden hazırlanır.</li>` +
+    `<li><b>Asıl metin bir tık uzakta.</b> Her kartın altındaki <b>Tam metin</b> bağlantısı Resmî Gazete'deki asıl metni açar. Bağlayıcı olan her zaman oradaki metindir.</li>` +
+    `<li><b>Hesap yok, izleme yok.</b> Kayıtların, notların ve takip ettiklerin yalnızca bu tarayıcıda tutulur; menüden yedeğini indirip başka cihaza taşıyabilirsin. Site çerez ve ziyaretçi takibi kullanmaz.</li>` +
+    `</ol>` +
     `<div class="trans-box ab-warn">${ic("warn")}<div>Resmî bir kamu sitesi değildir. Özetler bilgilendirme amaçlıdır; ` +
     `bağlayıcı olan, Resmî Gazete'de yayımlanan asıl metindir.</div></div>` +
     `<section class="card links">` +
     link("#", "📤", "Siteyi arkadaşlarınla paylaş", ` data-paylas`) +
     link("https://www.linkedin.com/in/birolabanuzoglu", "💼", "LinkedIn: linkedin.com/in/birolabanuzoglu", ` target="_blank" rel="noopener"`) +
-    link("mailto:birolabanuzoglu@gmail.com?subject=%C3%96zet%20RG%20Geri%20Bildirim", "✉️", "Bana yazın: birolabanuzoglu@gmail.com") +
+    link("mailto:birolabanuzoglu@gmail.com?subject=Resm%C3%AE%20Gazete%20%C3%96zeti%20Geri%20Bildirim", "✉️", "Bana yazın: birolabanuzoglu@gmail.com") +
     link("https://github.com/birolabanuzoglu/resmi-gazete-ozet/blob/main/GIZLILIK.md", "🛡️", "Gizlilik ve KVKK", ` target="_blank" rel="noopener"`) +
     link("https://github.com/birolabanuzoglu/resmi-gazete-ozet#telif-ve-kullan%C4%B1m", "©️", "Telif ve kullanım", ` target="_blank" rel="noopener"`) +
     `</section><p class="note ab-foot">Web sitesi · © 2026 · Simgeler: Material Icons (Apache 2.0)</p>`;
@@ -1915,13 +2295,16 @@ async function route() {
   // Üstteki Mevzuat düğmesi, Mevzuat sayfasındayken dolu görünür
   const mevBtn = document.getElementById("mev-btn");
   if (mevBtn) mevBtn.classList.toggle("on", q.has("mevzuat"));
-  $app.classList.toggle("about", q.has("hakkinda") || q.has("takvim") || q.has("bulten") || q.has("mevzuat"));
+  const abBtn = document.getElementById("ab-btn");
+  if (abBtn) abBtn.classList.toggle("on", q.has("hakkinda"));
+  $app.classList.toggle("about", q.has("hakkinda") || q.has("takvim") || q.has("bulten") || q.has("mevzuat") || q.has("radar"));
   applyFont();
   MISS = null;
   if (q.has("hakkinda")) { showAbout(); return; }
   // Eski "Araçlar" adresi: ana sayfa açılır, ayarlar sol menüde
   if (q.has("araclar")) { history.replaceState(null, "", "./"); await route(); openDrawer("gorunum"); return; }
-  if (q.has("mevzuat")) { await showMevzuat(q.get("mevzuat") || "", q.get("tur") || "", (q.get("ara") || "").trim()); return; }
+  if (q.has("mevzuat")) { await showMevzuat(q.get("mevzuat") || "", q.get("tur") || "", (q.get("ara") || "").trim(), q.get("yil") || ""); return; }
+  if (q.has("radar")) { try { await loadIndex(); } catch (e) { return showError(e, route); } await showRadar(); return; }
   if (q.has("takvim")) { await showCalendar(); return; }
   if (q.has("bulten")) { await showBulletin(+q.get("bulten")); return; }
   try { await loadIndex(); } catch (e) { return showError(e, route); }

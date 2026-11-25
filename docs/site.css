@@ -15,11 +15,16 @@
 .tbtn:hover{background:rgba(255,255,255,.2)}
 .tbtn svg.i{font-size:19px}
 .tbtn.round{width:38px;padding:0;justify-content:center}
+/* Dar ekranda önce "Ara" yazısı gizlenir, sonra logo; "Mevzuat" yazısı hep görünür (uygulamadaki gibi) */
+.brand > span{min-width:0}
+.brand b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media (max-width:440px){
-  .tbtn .lbl{display:none}
-  .tbtn{width:38px;padding:0;justify-content:center}
+  #ara-btn .lbl{display:none}
+  #ara-btn{width:38px;padding:0;justify-content:center}
+  #mev-btn{padding:0 12px 0 10px}
   .brand b{font-size:19px}
 }
+@media (max-width:420px){.brand img{display:none}}
 main{padding-top:6px}
 
 /* Kapak kartında paylaş düğmesi */
@@ -344,3 +349,17 @@ html.dark .tbtn.on{color:#861717}
 /* Sol menu basligi uzun ad icin iki satira siger */
 .dr-head b{font-size:16.5px}
 @media (max-width:380px){.dr-head img{width:40px;height:40px;border-radius:12px}}
+
+/* 2.8: Mevzuat ve Bildirim Radarı sayfalarının web parçaları */
+.mv-sbox.mv-in{padding:0 14px;cursor:text}
+.mv-sbox.mv-in input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--ink);font:inherit;font-size:15px;padding:12px 0}
+.mv-sbox.mv-in input::-webkit-search-cancel-button{cursor:pointer}
+.mv-sbox.mv-in:focus-within{box-shadow:inset 0 0 0 2px var(--brand)}
+.mv-acts a,.mv-acts2 a,.rd-kq a,.rd-jobs a,.rd-sugs a{cursor:pointer}
+.mv-hero2 + .mv-types{margin-top:14px}
+.rd-warn{margin:0 0 12px}
+.rd-all{max-height:340px;overflow:auto;padding:2px;border-radius:12px}
+.rd-all a.on{color:#1F6B3F;background:#E3F4E8;box-shadow:inset 0 0 0 1.5px #8BC9A0}
+.rd-all a::before{content:none}
+html.dark .rd-all a.on{color:#9BE0B3;background:#17301F;box-shadow:inset 0 0 0 1.5px #2F6B46}
+.dr-row .dr-n{margin-left:auto}

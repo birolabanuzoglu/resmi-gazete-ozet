@@ -21,8 +21,8 @@
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"WebSite","name":"Günlük Resmî Gazete ve Mevzuat Özeti","alternateName":["Resmî Gazete Özeti","Günlük Resmî Gazete Özeti"],"url":"https://birolabanuzoglu.github.io/resmi-gazete-ozet/","inLanguage":"tr","description":"T.C. Resmî Gazete'nin her sayısının sade Türkçe özeti ve kurumlara göre mevzuat: öne çıkanlar, kanun, yönetmelik, tebliğ ve kararlar, atamalar, eski–yeni karşılaştırmaları. Ücretsiz.","potentialAction":{"@type":"SearchAction","target":"https://birolabanuzoglu.github.io/resmi-gazete-ozet/?ara={search_term_string}","query-input":"required name=search_term_string"}}
 </script>
-<link rel="stylesheet" href="app.css?v=29">
-<link rel="stylesheet" href="site.css?v=29">
+<link rel="stylesheet" href="app.css?v=30">
+<link rel="stylesheet" href="site.css?v=30">
 <script>
   // Tema, sayfa çizilmeden önce uygulanır (açık sayfanın bir an parlamaması için)
   (function () {
@@ -32,7 +32,7 @@
     document.documentElement.className = d ? "dark" : "light";
   })();
 </script>
-<script src="site.js?v=29" defer></script>
+<script src="site.js?v=30" defer></script>
 </head>
 <body>
 <div class="band"></div>
@@ -45,6 +45,7 @@
   <nav class="tb">
     <a class="tbtn" id="ara-btn" href="?ara=" data-nav><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg><span class="lbl">Ara</span></a>
     <a class="tbtn" id="mev-btn" href="?mevzuat" data-nav><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/></svg><span class="lbl">Mevzuat</span></a>
+    <a class="tbtn round" id="ab-btn" href="?hakkinda" data-nav aria-label="Hakkında" title="Hakkında"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg></a>
   </nav>
 </header>
 <main id="app"><div class="ld"><i></i>Özet yükleniyor…</div></main>
@@ -54,7 +55,7 @@
   <h2>Günlük Resmî Gazete ve Mevzuat Özeti nedir?</h2>
   <p>Günlük Resmî Gazete ve Mevzuat Özeti, T.C. Resmî Gazete'nin her sayısını sade Türkçe özetleyen ücretsiz bir web sitesi ve Android uygulamasıdır. Her günün özetinde öne çıkanlar, kanun, yönetmelik, tebliğ ve karar maddeleri, atama kararları ve eski–yeni karşılaştırmaları yer alır; kamu personelini ilgilendiren düzenlemeler ayrıca ayrıntılı özetlenir. Mevzuat bölümünde Resmî Gazete'de yayımlanan düzenlemeleri kurumlara göre (bakanlıklar, kurullar, üniversiteler, yargı) listeleyebilirsiniz.</p>
   <p>Hesap gerekmez. Özetler yapay zekâ ile hazırlanır ve hata içerebilir; bağlayıcı olan Resmî Gazete'de yayımlanan metindir. 2020'ye kadar geriye dönük arşiv özetleri de hazırlanmaktadır.</p>
-  <p><a href="?mevzuat" data-nav>Mevzuat (kurumlara göre)</a> · <a href="?gecmis" data-nav>Geçmiş özetler</a> · <a href="gun/">Bütün günlerin özetleri</a> · <a href="?bulten=7" data-nav>Haftalık bülten</a> · <a href="?bulten=30" data-nav>Aylık bülten</a> · <a href="?takvim" data-nav>Yürürlük takvimi</a> · <a href="?hakkinda" data-nav>Hakkında</a></p>
+  <p><a href="?mevzuat" data-nav>Mevzuat (kurumlara göre)</a> · <a href="?gecmis" data-nav>Geçmiş özetler</a> · <a href="gun/">Bütün günlerin özetleri</a> · <a href="?radar" data-nav>Bildirim Radarı</a> · <a href="?bulten=7" data-nav>Haftalık bülten</a> · <a href="?bulten=30" data-nav>Aylık bülten</a> · <a href="?takvim" data-nav>Yürürlük takvimi</a> · <a href="?hakkinda" data-nav>Hakkında</a></p>
 </section>
 <footer class="foot">
   <div class="foot-links">
