@@ -1,0 +1,105 @@
+name: Arsiv Dalga Baslat
+
+# Karinca ve Evren arsiv turlarini saatte bir toplu (paralel) baslatir; bilgisayardan bagimsiz, GitHub'da calisir.
+# Durdurmak icin: depoda arsiv/DURDUR dosyasi olustur (icerigi onemsiz) ya da bu is akisini Actions sekmesinden kapat.
+# Kendiliginden durur: kalan gun <= 30 ise; bir sistemin yoklama turu 5 dakika icinde biterse (gunluk kota dolu,
+# anahtar sorunu, kredi kilidi...) o sistemin gerisi baslatilmaz.
+
+on:
+  schedule:
+    - cron: '7 * * * *'
+  workflow_dispatch:
+    inputs:
+      karinca:
+        description: 'Baslatilacak Karinca turu sayisi'
+        required: false
+        default: '8'
+        type: string
+      evren:
+        description: 'Baslatilacak Evren turu sayisi'
+        required: false
+        default: '8'
+        type: string
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: arsiv-dalga
+  cancel-in-progress: false
+
+jobs:
+  dalga:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Durdurma kosullari
+        id: kontrol
+        run: |
+          if [ -f arsiv/DURDUR ]; then
+            echo "arsiv/DURDUR var: dalga baslatilmayacak"
+            echo "devam=hayir" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          kalan=$(python3 gorev/arsiv.py durum 2>/dev/null | sed -n 's/^KALAN \([0-9]*\).*/\1/p' | head -1)
+          echo "kalan gun: ${kalan:-bilinmiyor}"
+          if [ -n "$kalan" ] && [ "$kalan" -le 30 ]; then
+            echo "kalan gun <= 30: dalga baslatilmayacak"
+            echo "devam=hayir" >> "$GITHUB_OUTPUT"
+          else
+            echo "devam=evet" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Karinca ve Evren turlarini baslat
+        if: steps.kontrol.outputs.devam == 'evet'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KARINCA: ${{ inputs.karinca || '8' }}
+          EVREN: ${{ inputs.evren || '8' }}
+        run: |
+          set +e
+          # Bir sistem icin once tek tur (yoklama) baslatir. 5 dakika icinde bitiyorsa (normal bir tur >= 38 dk surer)
+          # sistem calisamiyor demektir; gerisi baslatilmaz. Calisiyorsa kalan turlar 20 sn arayla baslatilir.
+          dalga() {
+            ad="$1"; dosya="$2"; sayi="$3"; gun="$4"
+            if [ "$sayi" -lt 1 ]; then return 0; fi
+            once=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+            if ! gh workflow run "$dosya" --ref main -f gun_sayisi="$gun"; then
+              echo "$ad: yoklama turu baslatilamadi; gerisi atlandi"
+              return 0
+            fi
+            id=""
+            for i in $(seq 1 12); do
+              sleep 5
+              id=$(gh run list --workflow "$dosya" --event workflow_dispatch --limit 10 --json databaseId,createdAt \
+                   --jq "[.[] | select(.createdAt >= \"$once\")] | sort_by(.createdAt) | .[0].databaseId // empty")
+              if [ -n "$id" ]; then break; fi
+            done
+            if [ -z "$id" ]; then
+              echo "$ad: yoklama turu bulunamadi; gerisi atlandi"
+              return 0
+            fi
+            echo "$ad: yoklama turu $id, 5 dakika izlenecek"
+            bitti=""
+            for i in $(seq 1 30); do
+              sleep 10
+              durum=$(gh run view "$id" --json status,conclusion --jq '.status + ":" + (.conclusion // "")')
+              case "$durum" in completed:*) bitti="$durum"; break;; esac
+            done
+            if [ -n "$bitti" ]; then
+              echo "$ad: yoklama turu 5 dakika icinde bitti ($bitti): kota dolu, anahtar sorunu ya da is bitmis olabilir; gerisi atlandi"
+              return 0
+            fi
+            echo "$ad: yoklama turu saglikli calisiyor; kalan $((sayi - 1)) tur baslatiliyor"
+            for i in $(seq 2 "$sayi"); do
+              gh workflow run "$dosya" --ref main -f gun_sayisi="$gun" || true
+              sleep 20
+            done
+          }
+          dalga Karinca karinca-arsiv.yml "$KARINCA" 35
+          dalga Evren evren-arsiv.yml "$EVREN" 25
