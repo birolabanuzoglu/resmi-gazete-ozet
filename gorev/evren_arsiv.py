@@ -202,8 +202,11 @@ def evren_cagir(evren_key: str, mesajlar: list[dict]) -> str:
             try:
                 # Akis 'text/event-stream' olarak karakter kumesiz gelirse requests ISO-8859-1 sayar ve Turkce
                 # harfler bozulur (24 Kasim: Karinca'nin butun ciktilari denetimden gecemedi); UTF-8 zorlanir.
+                akis_basi = time.monotonic()
                 yanit.encoding = "utf-8"
                 for satir in yanit.iter_lines(decode_unicode=True):
+                    if time.monotonic() - akis_basi > 720:  # takili akis turu 55 dk zaman asimina kadar tutmasin
+                        raise GeciciApiHatasi(f"{model} akis 12 dakikayi asti")
                     if not satir or not satir.startswith("data:"):
                         continue
                     veri_str = satir[5:].strip()
