@@ -1027,6 +1027,15 @@ async function showList(q, tur) {
   input.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(() => apply(false), 250); });
   const date = $app.querySelector('input[type="date"]');
   date.addEventListener("change", e => { if (e.target.value) go(dayUrl(normKey(e.target.value))); });
+  const yrs = $app.querySelector(".years");
+  if (yrs) yrs.addEventListener("click", e => {
+    const a = e.target.closest(".yr");
+    if (!a) return;
+    e.preventDefault();
+    const id = a.getAttribute("href").slice(1);
+    if (jumpTo(id)) history.replaceState(null, "", location.search + "#" + id);
+    else toast("Bu yılda gösterilecek gün yok");
+  });
   // Bildirim Radarı'na kayıtlı arama (uygulamadaki "Aramayı kaydet")
   $app.querySelector("[data-ssave]").addEventListener("click", () => {
     const v = input.value.trim();
@@ -2285,6 +2294,23 @@ function toast(text) {
   toastTimer = setTimeout(() => t.classList.remove("on"), 2200);
 }
 
+/**
+ * Sayfadaki bir başlığa (ör. Geçmiş'te "#y-2022") atlar. Geçmiş'in ay blokları ekrana gelene kadar tahmini boyla
+ * tutulur (content-visibility:auto); yumuşak kaydırma yol üstündeki aylar gerçek boyuna büyürken eski hedefte
+ * durduğu için 2022'ye basınca 2026'da kalınıyordu. Burada anında atlanır ve yerleşim oturdukça konum düzeltilir.
+ */
+function jumpTo(id) {
+  const el = document.getElementById(id);
+  if (!el) return false;
+  // Atlamadan önce Geçmiş listesinin bütün ayları gerçek boyuyla çizilir; tahmini boylar kalırsa hedef kayar
+  const days = el.closest("#days");
+  if (days && !days.classList.contains("full")) { days.classList.add("full"); void days.offsetHeight; }
+  const jump = () => el.scrollIntoView({ behavior: "instant", block: "start" });
+  jump();
+  requestAnimationFrame(() => { jump(); setTimeout(jump, 150); });
+  return true;
+}
+
 let lastSearch = null;
 async function route() {
   lastSearch = location.search;
@@ -2312,8 +2338,7 @@ async function route() {
   else if (q.has("gecmis") || q.has("ara") || q.has("tur")) await showList((q.get("ara") || "").trim(), q.get("tur") || "");
   else await showDay(INDEX.guncel, "");
   // Sayfa içi adresle açıldıysa (ör. …#sec-ata) içerik çizildikten sonra oraya kaydır
-  const target = location.hash.length > 1 && document.getElementById(decodeURIComponent(location.hash.slice(1)));
-  if (target) target.scrollIntoView();
+  if (location.hash.length > 1) jumpTo(decodeURIComponent(location.hash.slice(1)));
 }
 function go(url) {
   history.pushState(null, "", url);
