@@ -468,7 +468,7 @@ gösteren kartlar olarak gösterir.
 
 ## Arşiv kipi (geçmiş günler)
 
-Bu bölüm yalnızca arşiv rutini içindir; günlük çalışmada bu bölümü atla. Arşiv rutini 2020'den
+Bu bölüm yalnızca arşiv rutini içindir; günlük çalışmada bu bölümü atla. Arşiv rutini 2000'den
 bu yana yayımlanmış sayıların özetini, günlük özetle aynı biçimde, yeniden eskiye doğru yazar
 (ilk aşama: 13 Ağustos – 10 Kasım 2026 arası 90 günlük deneme). Bu özetler yayımdan aylar, yıllar
 sonra okunur; aşağıdaki kurallar günlük kuralların üstüne eklenir.

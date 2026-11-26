@@ -9,7 +9,7 @@ const RAW = "https://raw.githubusercontent.com/birolabanuzoglu/resmi-gazete-ozet
 const AYLAR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
 const GUNLER = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
 // Arşivin hedef aralığı (uygulamadaki ARCHIVE_FIRST / ARCHIVE_LAST ile aynı)
-const ARSIV_BAS = Date.UTC(2020, 0, 1), ARSIV_SON = Date.UTC(2026, 10, 10);
+const ARSIV_BAS = Date.UTC(2000, 0, 1), ARSIV_SON = Date.UTC(2026, 10, 10);
 const ATAMA_ACIK = 12;
 
 // Material Icons (Apache 2.0) yolları
@@ -1004,7 +1004,7 @@ async function showList(q, tur) {
       `<a class="fchip${tur === v ? " on" : ""}" href="?gecmis${v ? `&tur=${v}` : ""}${q ? `&ara=${encodeURIComponent(q)}` : ""}" data-nav data-keep>${t}</a>`).join("") +
     `<label class="fchip date" id="tarih">${ic("cal")}Tarih seç<input type="date" min="2000-01-01" max="${isoOf(today)}"></label>` +
     `<button type="button" class="fchip" data-ssave>${ic("radar")}Aramayı kaydet</button></div>` +
-    `<div class="arsiv-bar"><div><span>🗄️ <b>Arşiv</b> · 2020'den bu yana</span><span>${sayi(done)} / ${sayi(total)} gün</span></div>` +
+    `<div class="arsiv-bar"><div><span>🗄️ <b>Arşiv</b> · 2000'den bu yana</span><span>${sayi(done)} / ${sayi(total)} gün</span></div>` +
     `<i><s style="width:${Math.max(1, (done / total) * 100).toFixed(2)}%"></s></i></div>` +
     (years.length > 1 ? `<div class="years">${years.map(y => `<a class="yr" href="#y-${y}">${y}</a>`).join("")}</div>` : "") +
     `</section><div id="days"></div>`;
@@ -1587,7 +1587,7 @@ function mevGrid(q, feed) {
     mvStats([[sayi(sh.raflar.length), "kurum rafı", "s1", "#mv-raflar"], [sayi(total), "düzenleme", "s3", "#mv-raflar"],
       feed ? [sayi(feed.filter(e => daysBetween(e.t, today) < 7).length), "son 7 günde", "s2", "?mevzuat=yeni"] : null,
       [sayi(fol.length), "takipte", "s4", "#mv-takip"]]) +
-    (days ? `<div class="mv-cov2"><div class="r"><span>🗄️ Arşiv · 2020'den bu yana</span><b>${sayi(days)} / ${sayi(all)} gün</b></div>` +
+    (days ? `<div class="mv-cov2"><div class="r"><span>🗄️ Arşiv · 2000'den bu yana</span><b>${sayi(days)} / ${sayi(all)} gün</b></div>` +
       `<i class="bar"><i style="width:${Math.min(100, Math.max(1, days / all * 100)).toFixed(1)}%"></i></i><small>Raflar arşivle birlikte büyür; özetler tamamlandıkça eski düzenlemeler de eklenir.</small></div>` : "") +
     `</section><div id="mv-body"></div>` + MV_NOTE;
   const body = document.getElementById("mv-body");
