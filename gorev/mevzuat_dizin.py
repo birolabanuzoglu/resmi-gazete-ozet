@@ -57,7 +57,7 @@ RAFLAR = [
      ["aile ve sosyal hizmetler", "aile çalışma ve sosyal hizmetler", "aile ve sosyal politikalar", "aile ve gençlik fonu"]),
     ("calisma", "Çalışma ve Sosyal Güvenlik Bakanlığı", G_BAK, ["çalışma ve sosyal güvenlik"]),
     ("cevre", "Çevre, Şehircilik ve İklim Değişikliği Bakanlığı", G_BAK,
-     ["çevre şehircilik ve iklim", "çevre ve şehircilik", "çevre şehircilik", "çevre bakanlığ*", "çevre bakanlık*", "kentsel dönüşüm başkanlığı", "tabiat varlıklarını koruma"]),
+     ["çevre şehircilik ve iklim", "çevre ve şehircilik", "çevre şehircilik", "çevre bakanlığ*", "çevre bakanlık*", "kentsel dönüşüm başkanlığı", "tabiat varlıklarını koruma", "çşid"]),
     ("disisleri", "Dışişleri Bakanlığı", G_BAK, ["dışişleri"]),
     ("enerji", "Enerji ve Tabii Kaynaklar Bakanlığı", G_BAK, ["enerji ve tabii kaynaklar", "eüaş"]),
     ("genclik", "Gençlik ve Spor Bakanlığı", G_BAK, ["gençlik ve spor"]),
@@ -105,6 +105,14 @@ RAFLAR = [
     ("ilbank", "İller Bankası", G_KUR, ["iller bankası", "ilbank"]),
     ("rtuk", "RTÜK (Radyo ve Televizyon Üst Kurulu)", G_KUR, ["rtük", "radyo ve televizyon üst kurulu"]),
     ("tenmak", "TENMAK (Türkiye Enerji, Nükleer ve Maden Araştırma Kurumu)", G_KUR, ["tenmak", "enerji nükleer ve maden araştırma"]),
+    ("iskur", "İŞKUR (Türkiye İş Kurumu)", G_KUR, ["işkur", "türkiye iş kurumu"]),
+    ("hak", "Helal Akreditasyon Kurumu", G_KUR, ["helal akreditasyon"]),
+    ("iletisim", "İletişim Başkanlığı", G_KUR, ["iletişim başkanlığı"]),
+    ("tuba", "Türkiye Bilimler Akademisi", G_KUR, ["türkiye bilimler akademisi", "tüba"]),
+    ("kapadokya", "Kapadokya Alan Başkanlığı", G_KUR, ["kapadokya alan başkanlığı"]),
+    ("shfk", "Sağlık Hizmetleri Fiyatlandırma Komisyonu", G_KUR, ["sağlık hizmetleri fiyatlandırma"]),
+    ("trt", "TRT (Türkiye Radyo-Televizyon Kurumu)", G_KUR, ["trt", "türkiye radyo televizyon kurumu"]),
+    ("seker", "Türkiye Şeker Fabrikaları", G_KUR, ["türkiye şeker fabrikaları", "türkşeker"]),
 
     ("aym", "Anayasa Mahkemesi", G_YAR, ["anayasa mahkemesi*"]),
     ("yargitay", "Yargıtay", G_YAR, ["yargıtay*"]),
@@ -118,7 +126,8 @@ RAFLAR = [
 
     ("belediye", "Belediyeler", G_DIG, ["belediye*"]),
     ("meslek", "Meslek kuruluşları ve federasyonlar", G_DIG,
-     ["tmmob", "türmob", "odası", "odaları", "federasyonu", "barolar birliği", "noterler birliği", "gözlükçüler birliği", "mimar odaları"]),
+     ["tmmob", "türmob", "odası", "odaları", "federasyonu", "barolar birliği", "noterler birliği", "gözlükçüler birliği", "mimar odaları",
+      "tesk", "türkiye esnaf ve sanatkarları konfederasyonu", "tobb", "türkiye odalar ve borsalar birliği"]),
     ("andlasma", "Milletlerarası andlaşmalar", G_DIG, []),
     ("diger", "Diğer kurumlar", G_DIG, []),
 ]
