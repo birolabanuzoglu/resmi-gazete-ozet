@@ -1,0 +1,43 @@
+# Ust duzey atamalarda bos kalan onceki gorevliyi Gemini + Google aramasiyla, kaynak sartiyla doldurur.
+# 27.11.2026: yalniz elle baslatilir (deneme). Ayrinti: gorev/onceki_ara.py
+name: Onceki gorevli arama (deneme)
+
+on:
+  workflow_dispatch:
+    inputs:
+      adet:
+        description: "En cok kac satir aransin"
+        default: "10"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: onceki-gorevli
+  cancel-in-progress: false
+
+jobs:
+  ara:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Bagimliliklari kur
+        run: pip install requests
+
+      - name: Git kimligi ayarla
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Onceki gorevliyi ara
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python3 gorev/onceki_ara.py --adet "${{ inputs.adet }}"
