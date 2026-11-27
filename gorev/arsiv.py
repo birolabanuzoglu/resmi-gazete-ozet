@@ -43,6 +43,31 @@ TR = datetime.timezone(datetime.timedelta(hours=3))
 # istedi). Her secimden once main'deki yayin ve deneme kayitlarina bakilir; baska bir calismanin
 # son MESGUL_DAKIKA icinde sectigi (ve henuz yayimlamadigi) gun atlanir.
 MESGUL_DAKIKA = 40
+# 27.11.2026: "Metni incelenemedi" duzeltmesi. Okunamayan madde iceren arsiv ozeti (ARALIK_BAS -
+# DUZELTME_SON) bir kez yeniden yazilir; durum.json'da gunun kaydina "duzeltme": 1 yazilir. Yeni gunler
+# ve duzeltmeler sirayla secilir (dakikanin tek/ciftine gore once biri; o bos ise oteki).
+DUZELTME_SON = "20261110"  # arsiv ozetlerinin son gunu; sonrasi gunluk rutinindir
+DUZELTME_IZI = re.compile(r"incelenemedi|incelenememi|dahil edilemedi|dahil edilememi|okunamad|erişilemedi|"
+                          r"ulaşılamadı|metni (?:verilmedi|alınamadı|mevcut değil|bulunmuyor|sağlanmadı)", re.I)
+
+
+def duzeltilecekler(veri):
+    """Okunamayan madde iceren ve henuz yeniden yazilmamis arsiv ozetleri, en yeni basta."""
+    klasor = os.path.join(KOK, "ozetler")
+    sonuc = []
+    for ad in sorted(os.listdir(klasor), reverse=True):
+        t = ad[:8]
+        if not (ad.endswith(".html") and t.isdigit() and ARALIK_BAS <= t <= DUZELTME_SON):
+            continue
+        if veri["gunler"].get(t, {}).get("duzeltme", 0) >= 1:
+            continue
+        try:
+            with open(os.path.join(klasor, ad), encoding="utf-8", errors="replace") as f:
+                if DUZELTME_IZI.search(f.read()):
+                    sonuc.append(t)
+        except OSError:
+            continue
+    return sonuc
 
 
 def bugun():
@@ -149,19 +174,29 @@ def sonraki():
     birlestir(veri["gunler"], uzak)
     simdi = datetime.datetime.now(TR)
     kalan = [t for t in gunler() if not ozet_var(t) and t not in yayinda]
-    for t in kalan:
-        kayit = veri["gunler"].get(t, {})
-        if kayit.get("deneme", 0) >= DENEME_SINIRI or mesgul(kayit, simdi):
-            continue
-        kayit["deneme"] = kayit.get("deneme", 0) + 1
-        kayit["son"] = datetime.datetime.now(TR).strftime("%Y-%m-%d %H:%M")
-        veri["gunler"][t] = kayit
-        durum_yaz(veri)
-        gonder("Arsiv denemesi " + t)
-        print("ARSIV_TARIHI", t)
-        print("DENEME %d/%d" % (kayit["deneme"], DENEME_SINIRI))
-        print("KALAN", len(kalan))
-        return
+    duzelt = duzeltilecekler(veri)
+    sira = [("duzeltme", duzelt), ("yeni", kalan)]
+    if simdi.minute % 2:
+        sira.reverse()
+    for tur, liste in sira:
+        for t in liste:
+            kayit = veri["gunler"].get(t, {})
+            if mesgul(kayit, simdi) or (tur == "yeni" and kayit.get("deneme", 0) >= DENEME_SINIRI):
+                continue
+            if tur == "duzeltme":
+                kayit["duzeltme"] = kayit.get("duzeltme", 0) + 1
+            else:
+                kayit["deneme"] = kayit.get("deneme", 0) + 1
+            kayit["son"] = datetime.datetime.now(TR).strftime("%Y-%m-%d %H:%M")
+            veri["gunler"][t] = kayit
+            durum_yaz(veri)
+            gonder(("Arsiv duzeltme " if tur == "duzeltme" else "Arsiv denemesi ") + t)
+            print("ARSIV_TARIHI", t)
+            print("DENEME %d/%d" % (kayit.get("deneme", 0), DENEME_SINIRI))
+            if tur == "duzeltme":
+                print("DUZELTME", len(duzelt))
+            print("KALAN", len(kalan))
+            return
     print("ARSIV_BITTI")
 
 
@@ -186,6 +221,7 @@ def rapor():
     print("ARALIK", ARALIK_BAS, ARALIK_SON, len(tum), "gun")
     print("YAZILAN", len(yazilan))
     print("KALAN", len(tum) - len(yazilan))
+    print("DUZELTME_KALAN", len(duzeltilecekler(veri)))
     for t in tum:
         kayit = veri["gunler"].get(t, {})
         if t not in yazilan and kayit.get("deneme", 0) >= DENEME_SINIRI:

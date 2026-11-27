@@ -133,7 +133,7 @@ def main():
             tarih, kacirilan = bulunan
 
     guncelle = 0
-    if os.path.exists(os.path.join(KOK, "ozetler", tarih + ".html")):
+    if os.path.exists(os.path.join(KOK, "ozetler", tarih + ".html")) and not duzeltme_secildi(tarih):
         guncelle = yeni_mukerrer(tarih)
         if not guncelle:
             print("ZATEN_VAR", tarih)
@@ -260,6 +260,19 @@ def pdf_ocr(yol):
     if not metin:
         return ""
     return "[OCR ile okundu: taranmış belge; ad ve sayılarda okuma hatası olabilir]\n" + metin
+
+
+def duzeltme_secildi(tarih):
+    """27.11.2026: arsiv.py bu gunu "Metni incelenemedi" duzeltmesi icin sectiyse (yalniz --arsiv kipinde)
+    ozet var olsa da gun yeniden indirilir ve ozet yeniden yazilir."""
+    if BEKLEME != ARSIV_BEKLEME:
+        return False
+    import json
+    try:
+        with open(os.path.join(KOK, "arsiv", "durum.json"), encoding="utf-8") as f:
+            return json.load(f).get("gunler", {}).get(tarih, {}).get("duzeltme", 0) > 0
+    except (OSError, ValueError, AttributeError):
+        return False
 
 
 def taban_adresi(tarih):
