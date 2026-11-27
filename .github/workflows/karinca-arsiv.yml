@@ -34,7 +34,10 @@ jobs:
           python-version: '3.11'
 
       - name: Bagimliliklari kur
-        run: pip install requests
+        run: |
+          pip install requests pypdf
+          # 27.11.2026: PDF metni (pdftotext) ve taranmis PDF icin Turkce OCR (tesseract)
+          sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils tesseract-ocr tesseract-ocr-tur > /dev/null || true
 
       - name: Git kimligi ayarla
         run: |

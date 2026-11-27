@@ -226,6 +226,40 @@ def telafi(tarih, sonra=None):
             return gun, True
     return None
 PDF_METIN_ALT_SINIRI = 200  # bundan kisa cikan metin, taranmis goruntu sayilir ve yazilmaz
+OCR_SAYFA = 25  # 27.11.2026: taranmis bir PDF'te OCR ile okunacak en cok sayfa
+OCR_KALAN = [150]  # bir calismada OCR ile okunacak toplam sayfa (sure siniri: is akisi 55 dk)
+
+
+def pdf_ocr(yol):
+    """Metin katmani olmayan (taranmis) PDF'i OCR ile okur: pdftoppm + tesseract (Turkce).
+
+    Araclar yoksa, sayfa hakki bittiyse ya da basarisizsa bos doner. Metnin basina OCR uyarisi konur:
+    ozetleyen model ad ve sayilarda okuma hatasi olabilecegini bilsin.
+    """
+    ppm, tes = shutil.which("pdftoppm"), shutil.which("tesseract")
+    sayfa = min(OCR_SAYFA, OCR_KALAN[0])
+    if not (ppm and tes) or sayfa <= 0:
+        return ""
+    import tempfile
+    parcalar = []
+    with tempfile.TemporaryDirectory() as gecici:
+        try:
+            subprocess.run([ppm, "-r", "200", "-gray", "-l", str(sayfa), "-png", yol, os.path.join(gecici, "s")],
+                           check=True, timeout=300, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except (OSError, subprocess.SubprocessError):
+            return ""
+        for ad in sorted(os.listdir(gecici)):
+            OCR_KALAN[0] -= 1
+            try:
+                r = subprocess.run([tes, os.path.join(gecici, ad), "stdout", "-l", "tur"],
+                                   check=True, timeout=120, capture_output=True)
+                parcalar.append(r.stdout.decode("utf-8", "replace"))
+            except (OSError, subprocess.SubprocessError):
+                continue
+    metin = "\n\n".join(parcalar).strip()
+    if not metin:
+        return ""
+    return "[OCR ile okundu: taranmış belge; ad ve sayılarda okuma hatası olabilir]\n" + metin
 
 
 def taban_adresi(tarih):
@@ -287,6 +321,8 @@ def pdf_metni(yol):
             metin = "\n\n".join((sayfa.extract_text() or "") for sayfa in PdfReader(yol).pages)
         except Exception:  # modul yok ya da PDF okunamadi
             metin = ""
+    if len(metin.strip()) < PDF_METIN_ALT_SINIRI:
+        metin = pdf_ocr(yol) or metin  # 27.11.2026: taranmis PDF
     if len(metin.strip()) < PDF_METIN_ALT_SINIRI:
         if os.path.exists(hedef):
             os.remove(hedef)

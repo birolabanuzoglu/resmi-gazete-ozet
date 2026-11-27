@@ -67,6 +67,31 @@ def ham_html_ayikla(metin: str) -> str:
     return metin.strip()
 
 
+def belge_sirasi(p):
+    """27.11.2026: once fihrist (madde basliklari hep modele gitsin), sonra maddeler numara sirasiyla
+    (-2, -10'dan once), en sonda ilanlar. Eskiden ada gore siralaniyordu: fihrist sona dusup sinirda
+    kesiliyor, basliklar "Madde 1" diye kaliyordu."""
+    ad = p.name.lower()
+    if ad.startswith("fihrist"):
+        return (0, ad, [])
+    return (2 if "ilan" in ad else 1, "", [int(x) for x in re.findall(r"\d+", ad)])
+
+
+def adil_pay(uzunluklar, butce):
+    """Butce asilirsa her belge ortak bir esige kadar alinir (kisa belgeler tam, uzunlar kirpilir);
+    boylece sondaki belgeler hic gitmemezlik etmez, her maddenin en azindan basi modele ulasir."""
+    if sum(uzunluklar) <= butce:
+        return list(uzunluklar)
+    alt, ust = 0, max(uzunluklar)
+    while alt < ust:
+        orta = (alt + ust + 1) // 2
+        if sum(min(u, orta) for u in uzunluklar) <= butce:
+            alt = orta
+        else:
+            ust = orta - 1
+    return [min(u, alt) for u in uzunluklar]
+
+
 def metin_icerigi_hazirla(klasor: Path, tarih: str, talimat: str, maks_karakter: int = 85000) -> str:
     bolumler = [
         f"Aşağıdaki biçim ve üslup talimatlarına eksiksiz uyarak {tarih} tarihli T.C. Resmî Gazete "
@@ -76,6 +101,7 @@ def metin_icerigi_hazirla(klasor: Path, tarih: str, talimat: str, maks_karakter:
         f"ÖNEMLİ UYARI: TALIMAT.md içindeki tarih, sayı ve madde örnekleri YALNIZCA HTML yapısını "
         f"göstermek içindir. O örnek metinleri ASLA kopyalama; içeriği yalnızca aşağıda verilen "
         f"{tarih} tarihli gerçek Resmî Gazete belgelerinden oluştur.\n\n"
+        f"OKUNAMAYAN MADDE KURALI: Fihristteki her maddeyi yaz. Metni verilmeyen ya da okunamayan maddede başlığı fihristten AYNEN yaz (asla 'Madde 1' gibi yazma), kurumunu ve türünü başlıktan çıkar, başlıktan anlaşılanı tek cümleyle ver ve 'Tam metin bu özette incelenemedi; ayrıntı için resmî metne bakın.' ekle. Metnin yalnızca başı verildiyse (kısaltıldı işareti) o kısma dayanarak özetle ve 'Özet metnin ilk bölümüne dayanır.' ekle. [OCR ile okundu] işaretli metinde ad ve sayıları dikkatle aktar.\n\n"
         f"=== gorev/TALIMAT.md ===\n{talimat}\n=== TALİMAT SONU ===\n\n"
         f"=== {tarih} TARİHLİ GERÇEK RESMÎ GAZETE BELGELERİ ==="
     ]
@@ -89,24 +115,23 @@ def metin_icerigi_hazirla(klasor: Path, tarih: str, talimat: str, maks_karakter:
         p for p in tum_dosyalar if p.suffix.lower() in {".html", ".htm", ".json", ".xml"}
     ]
 
-    secilen_dosyalar.sort(key=lambda p: ("ilan" in p.name.lower(), str(p)))
+    secilen_dosyalar.sort(key=belge_sirasi)
 
-    toplam_karakter = len(bolumler[0])
+    metinler = []
     for dosya in secilen_dosyalar:
-        goreli = dosya.relative_to(klasor)
         metin = dosya.read_text(encoding="utf-8", errors="replace")
         if dosya.suffix.lower() in {".html", ".htm"}:
             metin = ham_html_ayikla(metin)
-        if not metin.strip():
+        if metin.strip():
+            metinler.append((dosya.relative_to(klasor), metin))
+    butce = max(0, maks_karakter - len(bolumler[0]) - 90 * len(metinler))  # 90: DOSYA basligi ve isaret payi
+    paylar = adil_pay([len(m) for _, m in metinler], butce)
+    for (goreli, metin), pay in zip(metinler, paylar):
+        if pay <= 0:
             continue
-        if toplam_karakter + len(metin) > maks_karakter:
-            kalan = max(0, maks_karakter - toplam_karakter)
-            if kalan > 500:
-                metin = metin[:kalan] + "\n[Dakikalık token sınırı nedeniyle kısaltıldı]"
-            else:
-                break
+        if pay < len(metin):
+            metin = metin[:pay] + "\n[Dakikalık token sınırı nedeniyle kısaltıldı]"
         bolumler.append(f"\n--- DOSYA: {goreli} ---\n{metin}\n")
-        toplam_karakter += len(metin)
 
     return "\n".join(bolumler)
 
@@ -373,7 +398,7 @@ def main() -> int:
             klasor = KOK / klasor
 
         gun_basarili = False
-        for boyut in (85000, 55000, 35000):
+        for boyut in (85000, 70000, 55000):  # 27.11.2026: 35000'de TALIMAT tek basina siniri asiyor, belge gitmiyordu
             try:
                 kullanici_metni = metin_icerigi_hazirla(klasor, tarih, talimat, maks_karakter=boyut)
                 mesajlar = [{"role": "user", "content": kullanici_metni}]
