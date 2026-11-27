@@ -23,7 +23,9 @@ import yayinla  # noqa: E402  (git yardimcisi, depo koku)
 
 KOK = yayinla.KOK
 # Sirayla denenir: model yoksa (404) ya da arama aracini desteklemiyorsa (400) siradaki (27.11.2026)
-MODELLER = [m for m in (os.environ.get("ONCEKI_MODEL"), "gemini-flash-latest", "gemini-2.5-flash",
+# 27.11.2026: gemini-2.5-flash kapatildi (404; Gemini yerine gemini-3.8-flash'i oneriyor). Ozet hatti
+# flash-latest ve 4-hydrogen'i kullandigi icin arama once kotasi ayri olabilecek 3.8-flash'i dener.
+MODELLER = [m for m in (os.environ.get("ONCEKI_MODEL"), "gemini-3.8-flash", "gemini-flash-latest",
                         "gemini-4-hydrogen") if m]
 URL = "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent"
 # Tekil (bir anda tek kisinin bulundugu) ust duzey gorevler; yalniz gorev kismina (" · " sonrasi), tam kelime
