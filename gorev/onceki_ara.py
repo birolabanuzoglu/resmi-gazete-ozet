@@ -22,7 +22,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import yayinla  # noqa: E402  (git yardimcisi, depo koku)
 
 KOK = yayinla.KOK
-MODEL = os.environ.get("ONCEKI_MODEL", "gemini-2.5-flash")
+# Sirayla denenir: model yoksa (404) ya da arama aracini desteklemiyorsa (400) siradaki (27.11.2026)
+MODELLER = [m for m in (os.environ.get("ONCEKI_MODEL"), "gemini-flash-latest", "gemini-2.5-flash",
+                        "gemini-4-hydrogen") if m]
 URL = "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent"
 # Tekil (bir anda tek kisinin bulundugu) ust duzey gorevler; yalniz gorev kismina (" · " sonrasi), tam kelime
 UST = re.compile(r"\brektör(ü)?\b|\bgenel müdür(ü)?\b(?!\s*yardımcı)|\b[iİ]l\b.*\bmüdür(ü)?\b|\bvali(si)?\b(?!\s*yardımcı)|"
@@ -77,11 +79,20 @@ def ara(anahtar, gorev, yeni, tarih):
              "{\"ad\": \"Ad SOYAD\"} ya da {\"ad\": \"BULUNAMADI\"}.")
     govde = {"contents": [{"role": "user", "parts": [{"text": istem}]}], "tools": [{"google_search": {}}],
              "generationConfig": {"temperature": 0}}
-    r = requests.post(URL % MODEL, headers={"x-goog-api-key": anahtar, "Content-Type": "application/json"},
-                      data=json.dumps(govde), timeout=120)
-    if r.status_code == 429:
-        raise RuntimeError("KOTA")
-    r.raise_for_status()
+    r = None
+    for model in MODELLER:
+        r = requests.post(URL % model, headers={"x-goog-api-key": anahtar, "Content-Type": "application/json"},
+                          data=json.dumps(govde), timeout=120)
+        if r.status_code == 429:
+            raise RuntimeError("KOTA")
+        if r.status_code == 200:
+            break
+        # Hata kodu ve Gemini'nin gerekcesi gunluge (anahtar yazilmaz); 404/400'de siradaki model
+        print("  API %s %d: %s" % (model, r.status_code, " ".join(r.text.split())[:220]))
+        if r.status_code not in (400, 404):
+            break
+    if r is None or r.status_code != 200:
+        raise ValueError("API %s" % (r.status_code if r is not None else "-"))
     aday = (r.json().get("candidates") or [{}])[0]
     metin = "".join(p.get("text", "") for p in aday.get("content", {}).get("parts", []))
     alanlar = []
@@ -127,7 +138,7 @@ def main():
             print("KOTA doldu; duruldu")
             break
         except Exception as e:  # ag ya da yanit bicimi
-            print("HATA", tarih, gorev[:50], type(e).__name__)
+            print("HATA", tarih, gorev[:50], type(e).__name__, str(e)[:80])
             continue
         if not gecerli(ad, yeni, alanlar):
             print("YAZILMADI", tarih, gorev[:50], "|", ad[:30], "|", ", ".join(alanlar[:3]))
