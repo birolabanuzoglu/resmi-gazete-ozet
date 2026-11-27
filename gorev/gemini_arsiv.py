@@ -109,6 +109,7 @@ def icerik_parcalari_hazirla(klasor: Path, tarih: str, talimat: str) -> list[dic
         f"ÖNEMLİ UYARI: TALIMAT.md içindeki tarih, sayı ve madde örnekleri YALNIZCA HTML yapısını "
         f"göstermek içindir. O örnek metinleri ASLA kopyalama; içeriği yalnızca aşağıda verilen "
         f"{tarih} tarihli gerçek Resmî Gazete belgelerinden oluştur.\n\n"
+        f"OKUNAMAYAN MADDE KURALI: Fihristteki her maddeyi yaz. Metni verilmeyen ya da okunamayan maddede başlığı fihristten AYNEN yaz (asla 'Madde 1' gibi yazma), kurumunu ve türünü başlıktan çıkar, başlıktan anlaşılanı tek cümleyle ver ve 'Tam metin bu özette incelenemedi; ayrıntı için resmî metne bakın.' ekle.\n\n"
         f"=== gorev/TALIMAT.md ===\n{talimat}\n=== TALİMAT SONU ===\n\n"
         f"=== {tarih} TARİHLİ GERÇEK RESMÎ GAZETE DOSYALARI ==="
     )
