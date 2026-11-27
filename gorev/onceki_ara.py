@@ -151,6 +151,11 @@ def main():
         if not gecerli(ad, yeni, alanlar):
             print("YAZILMADI", tarih, gorev[:50], "|", ad[:30], "|", ", ".join(alanlar[:3]))
             continue
+        if "--yazma" in sys.argv:
+            # Deneme kipi: ad ozete yazilmaz, yalniz gunluge dokulur; patron kontrol edip onaylar
+            print("BULUNDU (yazilmadi)", tarih, gorev[:60], "| yeni:", yeni[:30], "-> onceki:", ad, "|",
+                  ", ".join(alanlar[:4]))
+            continue
         kaynak = "Google aramasıyla bulundu (%s): %s" % (bugun, html.escape(", ".join(alanlar[:3])))
         yeni_satir = hucre_yaz(hucre_yaz(satir, io, html.escape(ad)), ik, kaynak)
         yol = os.path.join(KOK, "ozetler", dosya)

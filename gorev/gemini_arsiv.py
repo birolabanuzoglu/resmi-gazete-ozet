@@ -19,7 +19,7 @@ TERCIH_MODELLER = [
 # katmanda cok daha genis gunluk kotayla, Pro'lardan SONRA yedek olarak denenir.
 YEDEK_FLASH_MODELLER = [
     "gemini-flash-latest",
-    "gemini-2.5-flash",
+    "gemini-3.8-flash",  # 27.11.2026: gemini-2.5-flash kapatildi (404), Gemini bunu oneriyor
 ]
 OZEL_MODEL_YASAK = ("lite", "embedding", "imagen", "veo", "tts", "audio", "image",
                     "banana", "transcribe", "robotics", "computer", "customtools", "live",

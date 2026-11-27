@@ -8,6 +8,13 @@ on:
       adet:
         description: "En cok kac satir aransin"
         default: "10"
+      yaz:
+        description: "Bulunan adlar ozetlere yazilsin mi (evet/hayir)"
+        default: "hayir"
+  # 28.11.2026 11:05 TSI (08:05 UTC) tek seferlik deneme: Gemini kotasi yenilendikten hemen sonra,
+  # arsiv turlarindan (dakika 17) once. Adlar YAZILMAZ, yalniz gunluge dokulur. Denemeden sonra kaldirilacak.
+  schedule:
+    - cron: '5 8 28 11 *'
 
 permissions:
   contents: write
@@ -40,4 +47,4 @@ jobs:
       - name: Onceki gorevliyi ara
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: python3 gorev/onceki_ara.py --adet "${{ inputs.adet }}"
+        run: python3 gorev/onceki_ara.py --adet "${{ inputs.adet || '8' }}" ${{ inputs.yaz == 'evet' && '--yaz' || '--yazma' }}
