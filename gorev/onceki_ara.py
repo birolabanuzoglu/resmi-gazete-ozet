@@ -80,11 +80,17 @@ def ara(anahtar, gorev, yeni, tarih):
     govde = {"contents": [{"role": "user", "parts": [{"text": istem}]}], "tools": [{"google_search": {}}],
              "generationConfig": {"temperature": 0}}
     r = None
+    kota = 0
     for model in MODELLER:
         r = requests.post(URL % model, headers={"x-goog-api-key": anahtar, "Content-Type": "application/json"},
                           data=json.dumps(govde), timeout=120)
         if r.status_code == 429:
-            raise RuntimeError("KOTA")
+            # Ucretsiz katmanda her modelin ayri kotasi var: dolu ise siradaki model; hepsi doluysa dur
+            print("  API %s 429: kota dolu" % model)
+            kota += 1
+            if kota == len(MODELLER):
+                raise RuntimeError("KOTA")
+            continue
         if r.status_code == 200:
             break
         # Hata kodu ve Gemini'nin gerekcesi gunluge (anahtar yazilmaz); 404/400'de siradaki model
